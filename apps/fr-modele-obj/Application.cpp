@@ -8,11 +8,16 @@
 int Application::run()
 {
 	// Put here code to run before rendering loop
+    glClearColor(1,0,0,1);
 
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
         const auto seconds = glfwGetTime();
+
+        //Matrix
+        m_MVMatrix = glm::translate(m_viewController.getViewMatrix(), glm::vec3(0, 0, -5));
+        m_normalMatrix = glm::transpose(glm::inverse(m_MVMatrix));
 
         // Put here rendering code
 		const auto fbSize = m_GLFWHandle.framebufferSize();
@@ -20,12 +25,16 @@ int Application::run()
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+        glUniformMatrix4fv(m_uMVProjMat, 1, false, glm::value_ptr(m_projMatrix * m_MVMatrix));
+        glUniformMatrix4fv(m_uMVMat, 1, false, glm::value_ptr(m_MVMatrix));
+        glUniformMatrix4fv(m_uNormMat, 1, false, glm::value_ptr(m_normalMatrix));
+
         glBindVertexArray(m_vao);
         auto indexOffset = 0;
         for(const auto indexCount: m_scData.indexCountPerShape)
         {
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
-            indexOffset+= indexCount;
+            indexOffset += indexCount;
         }
         glBindVertexArray(0);
 
@@ -46,6 +55,7 @@ int Application::run()
         auto guiHasFocus = ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard;
         if (!guiHasFocus) {
             // Put here code to handle user interactions
+            m_viewController.update(ellapsedTime);
         }
 
 		m_GLFWHandle.swapBuffers(); // Swap front and back buffers
@@ -69,7 +79,7 @@ Application::Application(int argc, char** argv):
 
     //SCENE LOADING
     const auto pathToSceneData = m_AssetsRootPath / m_AppName / "sponza/sponza.obj";
-    glmlv::loadObjScene(pathToSceneData, m_scData);
+    glmlv::loadObjScene(pathToSceneData, m_scData, false);
 
     const auto sceneDiagonalSize = glm::length(m_scData.bboxMax - m_scData.bboxMin);
     m_viewController.setSpeed(sceneDiagonalSize * 0.1f);
@@ -86,9 +96,9 @@ Application::Application(int argc, char** argv):
     //IBO
     glGenBuffers(1, &m_ibo);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
-        glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, m_scData.indexBuffer.size() * sizeof(m_scData.indexBuffer[0]), m_scData.indexBuffer.data(), 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, m_ibo);
+        glBufferStorage(GL_ARRAY_BUFFER, m_scData.indexBuffer.size() * sizeof(m_scData.indexBuffer[0]), m_scData.indexBuffer.data(), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     //VAO
     glGenVertexArrays(1, &m_vao);
@@ -105,4 +115,18 @@ Application::Application(int argc, char** argv):
             glVertexAttribPointer(VERTEX_ATTR_TEXCOORDS, 2, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, texCoords));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    //PROGRAM CREATION
+    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "frModeleObj.vs.glsl";
+    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "frModeleObj.fs.glsl";
+
+    m_program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
+    m_program.use();
+
+    //VS UNIFORM
+    m_uMVProjMat = m_program.getUniformLocation("uModelViewProjMatrix");
+    m_uMVMat = m_program.getUniformLocation("uModelViewMatrix");
+    m_uNormMat = m_program.getUniformLocation("uNormalMatrix");
+
+    glEnable(GL_DEPTH_TEST);
 }

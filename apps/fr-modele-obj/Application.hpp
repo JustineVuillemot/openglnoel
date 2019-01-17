@@ -26,6 +26,7 @@ private:
 
     glmlv::SceneData m_scData;
     glmlv::ViewController m_viewController;
+    glmlv::GLProgram m_program;
 
     GLuint m_vbo;
     GLuint m_vao;
@@ -36,5 +37,6 @@ private:
     const GLuint VERTEX_ATTR_NORMAL = 1;
     const GLuint VERTEX_ATTR_TEXCOORDS = 2;
 
-    glm::mat4 m_projMatrix;
+    glm::mat4 m_projMatrix, m_MVMatrix, m_normalMatrix, m_MVProjMatrix;
+    GLint m_uMVProjMat, m_uMVMat, m_uNormMat;
 };
