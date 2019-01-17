@@ -1,6 +1,7 @@
 #include "Application.hpp"
 
 #include <iostream>
+#include <math.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -20,6 +21,9 @@ int Application::run()
     glUniform1i(uKdSampler, 0); // Set the uniform to 0 because we use texture unit 0
     glBindSampler(0, sampler);
 
+
+    //glClearColor(1,0,0,1);
+
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
@@ -36,13 +40,13 @@ int Application::run()
         const auto fbSize = m_GLFWHandle.framebufferSize();
 
         //TEXTURES
-        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        glBindTexture(GL_TEXTURE_2D, textureCube);
 
-        //Lightning - general
-        glUniform3fv( directionalLightDir, 1, glm::value_ptr( dirLightDir ));
-        glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( dirLightIntensity ));
-        glUniform3fv( pointLightPosition, 1, glm::value_ptr( pointLightPos ));
-        glUniform3fv( pointLightIntensity, 1, glm::value_ptr( pointLightInt ));
+        //Lightning - General
+        glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+        glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
+        glUniform3fv( pointLightPosition, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(pointLightPos.x, pointLightPos.y, pointLightPos.z, 1)));
+        glUniform3fv( pointLightIntensity, 1, glm::value_ptr( colorPoint*intensityPoint ));
 
         //Envoie des matrices
         glUniformMatrix4fv( modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr( ProjMatrix * MVMatrixCube ));
@@ -56,13 +60,15 @@ int Application::run()
         glDrawElements(GL_TRIANGLES, cube.indexBuffer.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
+        glBindTexture(GL_TEXTURE_2D, 0);
+
         //Envoie des matrices
         glUniformMatrix4fv( modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr( ProjMatrix * MVMatrixSphere ));
         glUniformMatrix4fv( modelViewMatrix, 1, GL_FALSE, glm::value_ptr( MVMatrixSphere ));
         glUniformMatrix4fv( normalMatrix, 1, GL_FALSE, glm::value_ptr( NormalMatrixSphere ));
 
         //TEXTURES
-        glBindTexture(GL_TEXTURE_2D, textures[1]);
+        glBindTexture(GL_TEXTURE_2D, textureSphere);
 
         //Lightning - Sphere
         glUniform3f(uKd, uKdSphere[0], uKdSphere[1], uKdSphere[2]);
@@ -73,6 +79,8 @@ int Application::run()
         glBindVertexArray(0);
 
 		glViewport(0, 0, fbSize.x, fbSize.y);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
 		//glClear(GL_COLOR_BUFFER_BIT);
 
         // GUI code:
@@ -84,14 +92,17 @@ int Application::run()
 
             if (ImGui::CollapsingHeader("Directional Light"))
             {
-                ImGui::DragFloat3("DirLightIntensity", glm::value_ptr(dirLightIntensity));
-                ImGui::DragFloat3("DirLightDir", glm::value_ptr(dirLightDir));
+                ImGui::DragFloat("Dir angle Phi", &anglePhi);
+                ImGui::DragFloat("Dir angle Theta", &angleTheta);
+                ImGui::DragFloat("DirLightIntensity", &intensityDir);
+                ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
             }
 
             if (ImGui::CollapsingHeader("Point Light"))
             {
-                ImGui::DragFloat3("PointLightIntensity", glm::value_ptr(pointLightInt));
                 ImGui::DragFloat3("Position", glm::value_ptr(pointLightPos));
+                ImGui::DragFloat("PointLightIntensity", &intensityPoint);
+                ImGui::ColorEdit3("PointLightColor", glm::value_ptr(colorPoint));
             }
 
             if (ImGui::CollapsingHeader("Materials"))
@@ -128,13 +139,15 @@ Application::Application(int argc, char** argv):
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
     m_AssetsRootPath { m_AppPath.parent_path() / "assets" },
     view { glmlv::ViewController(m_GLFWHandle.window(), 10) },
-    dirLightDir {glm::vec3(2.0f, 0.0f, 5.0f)},
-    dirLightIntensity {glm::vec3(1.0f, 1.0f, 1.0f)},
     pointLightPos {glm::vec3(0.0f, 10.0f, 0.0f)},
-    pointLightInt {glm::vec3(1.0f, 2.0f, 1.0f)},
     uKdCube {1.0f, 0.0f, 0.0f},
-    uKdSphere {0.0f, 1.0f, 1.0f}
-
+    uKdSphere {0.0f, 1.0f, 1.0f},
+    anglePhi(10),
+    angleTheta(10),
+    intensityDir(10),
+    colorDir {50,50,50},
+    intensityPoint(20),
+    colorPoint {50,50,50}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
@@ -216,23 +229,27 @@ Application::Application(int argc, char** argv):
     //TEXTURES
     glmlv::Image2DRGBA imageCube = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "cube.jpg");
     glmlv::Image2DRGBA imageSphere = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "sphere.jpg");
-
+    //CUBE
     glActiveTexture(GL_TEXTURE0);
 
-    glGenTextures( 2, textures);
-    glTexStorage2D(GL_TEXTURE_2D, 2, GL_RGB32I, imageSphere.width(), imageSphere.height());
-
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glGenTextures(1, &textureCube);
+    
+    glBindTexture(GL_TEXTURE_2D, textureCube);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, imageCube.width(), imageCube.height());
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageCube.width(), imageCube.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageCube.data());
     glBindTexture(GL_TEXTURE_2D, 0);
+    
+    //SPHERE
+    glGenTextures(1, &textureSphere);
 
-
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    glTexSubImage2D(GL_TEXTURE_2D, 1, 0, 0, imageSphere.width(), imageSphere.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageSphere.data());
+    glBindTexture(GL_TEXTURE_2D, textureSphere);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, imageSphere.width(), imageSphere.height());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageSphere.width(), imageSphere.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageSphere.data());
     glBindTexture(GL_TEXTURE_2D, 0);
 
     //SAMPLERS
     glGenSamplers(1, &sampler);
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
     //getUniform

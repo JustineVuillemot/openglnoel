@@ -31,7 +31,8 @@ private:
 
     glmlv::GLProgram program;
 
-    GLuint textures[2];
+    GLuint textureCube;
+    GLuint textureSphere;
     GLuint sampler;
 
     glmlv::ViewController view;
@@ -54,10 +55,13 @@ private:
     glm::mat4 NormalMatrixSphere;
     glm::mat4 ViewMatrix;
 
-    glm::vec3 dirLightDir;
-    glm::vec3 dirLightIntensity;
+    float anglePhi;
+    float angleTheta;
+    float intensityDir;
+    glm::vec3 colorDir;
+    float intensityPoint;
+    glm::vec3 colorPoint;
     glm::vec3 pointLightPos;
-    glm::vec3 pointLightInt;
     float uKdCube[3];
     float uKdSphere[3];
 
