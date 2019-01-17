@@ -7,74 +7,10 @@
 #include <glmlv/simple_geometry.hpp>
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
-#include <glmlv/Image2DRGBA.hpp>
+
 
 int Application::run()
 {
-    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "forward.vs.glsl";
-    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "forward.fs.glsl";
-
-    glmlv::GLProgram program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
-    program.use();
-
-    //TEXTURES
-    glmlv::Image2DRGBA imageCube = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "cube.jpg");
-    glmlv::Image2DRGBA imageSphere = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "sphere.jpg");
-
-    glActiveTexture(GL_TEXTURE0);
-
-    GLuint textures[2];
-    glGenTextures( 2, textures);
-    glTexStorage2D(GL_TEXTURE_2D, 2, GL_RGB32I, imageSphere.width(), imageSphere.height());
-
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageCube.width(), imageCube.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageCube.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    glTexSubImage2D(GL_TEXTURE_2D, 1, 0, 0, imageSphere.width(), imageSphere.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageSphere.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    //SAMPLERS
-    GLuint sampler;
-    glGenSamplers(1, &sampler);
-    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-
-
-    //Controller
-    glmlv::ViewController view = glmlv::ViewController(m_GLFWHandle.window(), 10);
-
-    //getUniform
-    //MATRIX
-	GLint modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
-	GLint modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
-	GLint normalMatrix = program.getUniformLocation("uNormalMatrix");
-
-    //LIGHT
-    GLint directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
-    GLint directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
-    GLint pointLightPosition = program.getUniformLocation("uPointLightPosition");
-    GLint pointLightIntensity = program.getUniformLocation("uPointLightIntensity");
-    GLint uKd = program.getUniformLocation("uKd");
-
-	//matrix
-	glm::mat4 ProjMatrix;
-	glm::mat4 MVMatrixCube;
-    glm::mat4 MVMatrixSphere;
-	glm::mat4 NormalMatrixCube;
-    glm::mat4 NormalMatrixSphere;
-    glm::mat4 ViewMatrix;
-
-    //Lightning
-    glm::vec3 dirLightDir = glm::vec3(2.0f, 0.0f, 5.0f);
-    glm::vec3 dirLightIntensity = glm::vec3(1.0f, 1.0f, 1.0f);
-    glm::vec3 pointLightPos = glm::vec3(0.0f, 10.0f, 0.0f);
-    glm::vec3 pointLightInt = glm::vec3(1.0f, 2.0f, 1.0f);
-    float uKdCube[3] = {1.0f, 0.0f, 0.0f};
-    float uKdSphere[3] = {0.0f, 1.0f, 1.0f};
-
     //sampler
     auto uKdSampler = program.getUniformLocation("uKdSampler");
 
@@ -191,8 +127,13 @@ Application::Application(int argc, char** argv):
     m_ImGuiIniFilename { m_AppName + ".imgui.ini" },
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
     m_AssetsRootPath { m_AppPath.parent_path() / "assets" },
-    cube {glmlv::makeCube()} ,
-    sphere {glmlv::makeSphere(10)}
+    view { glmlv::ViewController(m_GLFWHandle.window(), 10) },
+    dirLightDir {glm::vec3(2.0f, 0.0f, 5.0f)},
+    dirLightIntensity {glm::vec3(1.0f, 1.0f, 1.0f)},
+    pointLightPos {glm::vec3(0.0f, 10.0f, 0.0f)},
+    pointLightInt {glm::vec3(1.0f, 2.0f, 1.0f)},
+    uKdCube {1.0f, 0.0f, 0.0f},
+    uKdSphere {0.0f, 1.0f, 1.0f}
 
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
@@ -265,4 +206,46 @@ Application::Application(int argc, char** argv):
 
     glBindVertexArray(0);
 
+    //PROGRAM
+    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "forward.vs.glsl";
+    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "forward.fs.glsl";
+
+    program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
+    program.use();
+
+    //TEXTURES
+    glmlv::Image2DRGBA imageCube = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "cube.jpg");
+    glmlv::Image2DRGBA imageSphere = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "sphere.jpg");
+
+    glActiveTexture(GL_TEXTURE0);
+
+    glGenTextures( 2, textures);
+    glTexStorage2D(GL_TEXTURE_2D, 2, GL_RGB32I, imageSphere.width(), imageSphere.height());
+
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageCube.width(), imageCube.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageCube.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexSubImage2D(GL_TEXTURE_2D, 1, 0, 0, imageSphere.width(), imageSphere.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageSphere.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    //SAMPLERS
+    glGenSamplers(1, &sampler);
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    //getUniform
+    //MATRIX
+    modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
+    modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
+    normalMatrix = program.getUniformLocation("uNormalMatrix");
+
+    //LIGHT
+    directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
+    directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
+    pointLightPosition = program.getUniformLocation("uPointLightPosition");
+    pointLightIntensity = program.getUniformLocation("uPointLightIntensity");
+    uKd = program.getUniformLocation("uKd");
+    
 }

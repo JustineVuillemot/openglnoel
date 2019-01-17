@@ -5,6 +5,7 @@
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
 #include <glmlv/simple_geometry.hpp>
+#include <glmlv/Image2DRGBA.hpp>
 
 class Application
 {
@@ -27,4 +28,37 @@ private:
     GLuint ibo[2];
     const glmlv::SimpleGeometry cube = glmlv::makeCube();
     const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
+
+    glmlv::GLProgram program;
+
+    GLuint textures[2];
+    GLuint sampler;
+
+    glmlv::ViewController view;
+
+    GLint modelViewProjMatrix;
+    GLint modelViewMatrix;
+    GLint normalMatrix;
+
+    GLint directionalLightDir;
+    GLint directionalLightIntensity;
+    GLint pointLightPosition;
+    GLint pointLightIntensity;
+    GLint uKd;
+
+    //matrix
+    glm::mat4 ProjMatrix;
+    glm::mat4 MVMatrixCube;
+    glm::mat4 MVMatrixSphere;
+    glm::mat4 NormalMatrixCube;
+    glm::mat4 NormalMatrixSphere;
+    glm::mat4 ViewMatrix;
+
+    glm::vec3 dirLightDir;
+    glm::vec3 dirLightIntensity;
+    glm::vec3 pointLightPos;
+    glm::vec3 pointLightInt;
+    float uKdCube[3];
+    float uKdSphere[3];
+
 };
