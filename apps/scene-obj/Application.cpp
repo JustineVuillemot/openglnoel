@@ -10,6 +10,16 @@ int Application::run()
 	// Put here code to run before rendering loop
     glClearColor(1,0,0,1);
 
+    //sampler
+    auto samplers[0] = program.getUniformLocation("uKdSampler");
+    auto samplers[1] = program.getUniformLocation("uKdSampler");
+    auto samplers[2] = program.getUniformLocation("uKdSampler");
+    
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(uKdSampler, 0); // Set the uniform to 0 because we use texture unit 0
+    glBindSampler(0, sampler);
+
+
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
@@ -31,10 +41,16 @@ int Application::run()
 
         glBindVertexArray(vao);
         auto indexOffset = 0;
+        auto indexTexture = 0;
         for (const auto indexCount: data.indexCountPerShape)
         {
+            glBindTexture(GL_TEXTURE_2D, textures[indexTexture]);
+
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
             indexOffset += indexCount;
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+            ++indexTexture;
         }
 
         // GUI code:
@@ -85,10 +101,10 @@ Application::Application(int argc, char** argv):
     glmlv::loadObjScene(m_AssetsRootPath / m_AppName / "sponza/sponza.obj", data);
 
     const auto sceneDiagonalSize = glm::length(data.bboxMax - data.bboxMin);
-    view.setSpeed(sceneDiagonalSize * 0.1f); // 10% de la scene parcouru par seconde
+    view.setSpeed(sceneDiagonalSize * 0.2f); // 10% de la scene parcouru par seconde
 
-    sceneSize = glm::length(data.bboxMax - data.bboxMin);
-    ProjMatrix = glm::perspective(70.f, float(m_nWindowWidth) / m_nWindowHeight, 0.01f * sceneSize, sceneSize); // near = 1% de la taille de la scene, far = 100%
+    //sceneSize = glm::length(data.bboxMax - data.bboxMin);
+    ProjMatrix = glm::perspective(70.f, float(m_nWindowWidth) / m_nWindowHeight, 0.01f * sceneDiagonalSize, sceneDiagonalSize); // near = 1% de la taille de la scene, far = 100%
 
 
     glEnable(GL_DEPTH_TEST);
@@ -109,9 +125,9 @@ Application::Application(int argc, char** argv):
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     //IBO
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, data.indexBuffer.size() * sizeof(uint32_t), data.indexBuffer.data(), 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, ibo);
+    glBufferStorage(GL_ARRAY_BUFFER, data.indexBuffer.size() * sizeof(uint32_t), data.indexBuffer.data(), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     //VAO
     glBindVertexArray(vao);
@@ -135,6 +151,30 @@ Application::Application(int argc, char** argv):
     modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
     modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
     normalMatrix = program.getUniformLocation("uNormalMatrix");
+
+    //Texture
+    //textures = new GLuint[data.textures.size()];
+    uKd = program.getUniformLocation("uKd");
+    uKa = program.getUniformLocation("uKa");
+    uKs = program.getUniformLocation("uKs");
+
+    glActiveTexture(GL_TEXTURE0);
+    //glGenTextures(data.textures.size(), textures);
+
+    for(int i = 0; i < data.textures.size(); ++i){
+        GLuint textureTemp;
+        glBindTexture(GL_TEXTURE_2D, textureTemp);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, data.textures[i].width(), data.textures[i].height());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, data.textures[i].width(), data.textures[i].height(), GL_RGBA, GL_UNSIGNED_BYTE, data.textures[i].data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+        textures.push_back(textureTemp);
+    }
+
+    //SAMPLERS
+    glGenSamplers(3, samplers);
+    glSamplerParameteri(samplers[0], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(samplers[1], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(samplers[2], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
     //LIGHT
     /*directionalLightDir = program.getUniformLocation("uDirectionalLightDir");

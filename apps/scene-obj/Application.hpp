@@ -29,7 +29,7 @@ private:
 
     glmlv::ViewController view;
 
-    float sceneSize;
+    //float sceneSize;
 
     glmlv::GLProgram program;
 
@@ -42,10 +42,16 @@ private:
     GLint pointLightPosition;
     GLint pointLightIntensity;
     GLint uKd;
+    GLint uKa;
+    GLint uKs;
 
     //matrix
     glm::mat4 ProjMatrix;
     glm::mat4 MVMatrix;
     glm::mat4 NormalMatrix;
     glm::mat4 ViewMatrix;
+
+    //Texture
+    std::vector<GLuint> textures;
+    GLuint samplers[3];
 };
