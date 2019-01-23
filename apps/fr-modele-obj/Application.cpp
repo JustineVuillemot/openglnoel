@@ -8,7 +8,7 @@
 int Application::run()
 {
 	// Put here code to run before rendering loop
-    glClearColor(1,0,0,1);
+    //glClearColor(1,0,0,1);
 
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
@@ -25,17 +25,77 @@ int Application::run()
 
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+        //Projection and Normal Matrix
         glUniformMatrix4fv(m_uMVProjMat, 1, false, glm::value_ptr(m_projMatrix * m_MVMatrix));
         glUniformMatrix4fv(m_uMVMat, 1, false, glm::value_ptr(m_MVMatrix));
         glUniformMatrix4fv(m_uNormMat, 1, false, glm::value_ptr(m_normalMatrix));
 
+        //Lights
+        glUniform3fv(m_uLightDir_vs, 1, glm::value_ptr(m_viewController.getViewMatrix() * glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)));
+        glUniform3fv(m_uLightIn, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+
+        //Samplers
+        glBindSampler(0, m_samplerObj);
+        glUniform1i(m_usampler2Da, 0);
+
+        glBindSampler(1, m_samplerObj);
+        glUniform1i(m_usampler2Dd, 1);
+
+        glBindSampler(2, m_samplerObj);
+        glUniform1i(m_usampler2Ds, 2);
+
+        //Draw
         glBindVertexArray(m_vao);
         auto indexOffset = 0;
+        auto indexShape = 0;
         for(const auto indexCount: m_scData.indexCountPerShape)
         {
+            //Textures
+            auto materialId = m_scData.materialIDPerShape[indexShape];
+            int32_t textureId = -1;
+
+            if(materialId != -1){
+                //ambiant
+                glUniform3fv(m_uKa, 1, glm::value_ptr(m_scData.materials[materialId].Ka));
+                textureId = m_scData.materials[materialId].KaTextureId;
+                if(textureId != -1){
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, m_objTextures[textureId]);
+                }
+
+                //diffuse
+                glUniform3fv(m_uKd, 1, glm::value_ptr(m_scData.materials[materialId].Kd));
+                textureId = m_scData.materials[materialId].KdTextureId;
+                if(textureId != -1){
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, m_objTextures[textureId]);
+                }
+
+                //shininess
+                glUniform1f(m_ushininess, m_scData.materials[materialId].shininess);
+                glUniform3fv(m_uKs, 1, glm::value_ptr(m_scData.materials[materialId].Ks));
+                textureId = m_scData.materials[materialId].KsTextureId;
+                if(textureId != -1){
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, m_objTextures[textureId]);
+                }
+            }
+
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
             indexOffset += indexCount;
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            ++indexShape;
         }
+
         glBindVertexArray(0);
 
         // GUI code:
@@ -79,7 +139,7 @@ Application::Application(int argc, char** argv):
 
     //SCENE LOADING
     const auto pathToSceneData = m_AssetsRootPath / m_AppName / "sponza/sponza.obj";
-    glmlv::loadObjScene(pathToSceneData, m_scData, false);
+    glmlv::loadObjScene(pathToSceneData, m_scData);
 
     const auto sceneDiagonalSize = glm::length(m_scData.bboxMax - m_scData.bboxMin);
     m_viewController.setSpeed(sceneDiagonalSize * 0.1f);
@@ -127,6 +187,33 @@ Application::Application(int argc, char** argv):
     m_uMVProjMat = m_program.getUniformLocation("uModelViewProjMatrix");
     m_uMVMat = m_program.getUniformLocation("uModelViewMatrix");
     m_uNormMat = m_program.getUniformLocation("uNormalMatrix");
+
+    m_usampler2Da = m_program.getUniformLocation("uKaSampler");
+    m_usampler2Dd = m_program.getUniformLocation("uKdSampler");
+    m_usampler2Ds = m_program.getUniformLocation("uKsSampler");
+
+    m_uKa = m_program.getUniformLocation("uKa");
+    m_uKd = m_program.getUniformLocation("uKd");
+    m_uKs = m_program.getUniformLocation("uKs");
+
+    m_uLightDir_vs = m_program.getUniformLocation("uLightDir_vs");
+    m_uLightIn = m_program.getUniformLocation("uLightIntensity");
+    m_ushininess = m_program.getUniformLocation("shininess");
+
+    //Textures
+    m_objTextures.resize(m_scData.textures.size());
+    glGenTextures(m_scData.textures.size(), m_objTextures.data());
+
+    for(int i =0; i< m_scData.textures.size(); ++i){
+        glBindTexture(GL_TEXTURE_2D, m_objTextures[i]);
+            glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, m_scData.textures[i].width(), m_scData.textures[i].height());
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_scData.textures[i].width(), m_scData.textures[i].height(), GL_RGBA, GL_UNSIGNED_BYTE, m_scData.textures[i].data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    glGenSamplers(1, &m_samplerObj);
+    glSamplerParameteri(m_samplerObj, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(m_samplerObj, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glEnable(GL_DEPTH_TEST);
 }

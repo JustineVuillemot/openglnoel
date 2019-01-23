@@ -38,5 +38,9 @@ private:
     const GLuint VERTEX_ATTR_TEXCOORDS = 2;
 
     glm::mat4 m_projMatrix, m_MVMatrix, m_normalMatrix, m_MVProjMatrix;
-    GLint m_uMVProjMat, m_uMVMat, m_uNormMat;
+    GLint m_uMVProjMat, m_uMVMat, m_uNormMat, m_usampler2Da, m_usampler2Dd, m_usampler2Ds, m_uKa, m_uKd, m_uKs, m_uLightDir_vs, m_uLightIn, m_ushininess;
+
+    //Textures
+    std::vector<GLuint> m_objTextures;
+    GLuint m_samplerObj;
 };
