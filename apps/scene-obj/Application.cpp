@@ -8,17 +8,12 @@
 int Application::run()
 {
 	// Put here code to run before rendering loop
-    glClearColor(1,0,0,1);
+    //glClearColor(1,0,0,1);
 
-    //sampler
-    auto samplers[0] = program.getUniformLocation("uKdSampler");
-    auto samplers[1] = program.getUniformLocation("uKdSampler");
-    auto samplers[2] = program.getUniformLocation("uKdSampler");
-    
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(uKdSampler, 0); // Set the uniform to 0 because we use texture unit 0
-    glBindSampler(0, sampler);
-
+    //Change unit texture
+    glUniform1i(KaLocation, 0); // Set the uniform to 0 because we use texture unit 0
+    glUniform1i(KdLocation, 1); // Set the uniform to 1 because we use texture unit 1
+    glUniform1i(KsLocation, 2); // Set the uniform to 2 because we use texture unit 2
 
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
@@ -39,18 +34,59 @@ int Application::run()
         glUniformMatrix4fv( modelViewMatrix, 1, GL_FALSE, glm::value_ptr( MVMatrix ));
         glUniformMatrix4fv( normalMatrix, 1, GL_FALSE, glm::value_ptr( NormalMatrix ));
 
+        //samplers
+        //glActiveTexture(GL_TEXTURE0);
+        glBindSampler(0, sampler);
+        //glActiveTexture(GL_TEXTURE1);
+        glBindSampler(1, sampler);
+        //glActiveTexture(GL_TEXTURE2);
+        glBindSampler(2, sampler);
+
         glBindVertexArray(vao);
         auto indexOffset = 0;
-        auto indexTexture = 0;
+        int indexShape = 0;
+
+
+        //Lightning - General
+        glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+        glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
+
+
         for (const auto indexCount: data.indexCountPerShape)
         {
-            glBindTexture(GL_TEXTURE_2D, textures[indexTexture]);
+        
+            auto materialID = data.materialIDPerShape[indexShape];
+            if(materialID != -1){
+                glUniform1f( shininess, data.materials[materialID].shininess);
+                if(data.materials[materialID].KaTextureId != -1){
+                    glActiveTexture(GL_TEXTURE0);
+                    glUniform3fv(uKa, 1, glm::value_ptr(data.materials[materialID].Ka));
+                    glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KaTextureId]);
+                }
+                if(data.materials[materialID].KdTextureId != -1){
+                    glActiveTexture(GL_TEXTURE1);
+                    glUniform3fv(uKd, 1, glm::value_ptr(data.materials[materialID].Kd));
+                    glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KdTextureId]);
+                }
+                if(data.materials[materialID].KsTextureId != -1){
+                    glActiveTexture(GL_TEXTURE2);
+                    glUniform3fv(uKs, 1, glm::value_ptr(data.materials[materialID].Ks));
+                    glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KsTextureId]);
+                }
+            }
+            
 
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
             indexOffset += indexCount;
+            ++indexShape;
+            
 
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, 0); // débind sur l'unité GL_TEXTURE0
+            glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, 0);
-            ++indexTexture;
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
 
         // GUI code:
@@ -59,6 +95,13 @@ int Application::run()
         {
             ImGui::Begin("GUI");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            if (ImGui::CollapsingHeader("Directional Light"))
+            {
+                ImGui::DragFloat("Dir angle Phi", &anglePhi);
+                ImGui::DragFloat("Dir angle Theta", &angleTheta);
+                ImGui::DragFloat("DirLightIntensity", &intensityDir);
+                ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
+            }
             ImGui::End();
         }
 
@@ -85,7 +128,11 @@ Application::Application(int argc, char** argv):
     m_ImGuiIniFilename { m_AppName + ".imgui.ini" },
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
     m_AssetsRootPath { m_AppPath.parent_path() / "assets" },
-    view { glmlv::ViewController(m_GLFWHandle.window(), 10) }
+    view { glmlv::ViewController(m_GLFWHandle.window(), 10) },
+    anglePhi(10),
+    angleTheta(10),
+    intensityDir(10),
+    colorDir {50,50,50}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
@@ -163,6 +210,7 @@ Application::Application(int argc, char** argv):
 
     for(int i = 0; i < data.textures.size(); ++i){
         GLuint textureTemp;
+        glGenTextures(1, &textureTemp);
         glBindTexture(GL_TEXTURE_2D, textureTemp);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, data.textures[i].width(), data.textures[i].height());
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, data.textures[i].width(), data.textures[i].height(), GL_RGBA, GL_UNSIGNED_BYTE, data.textures[i].data());
@@ -171,15 +219,16 @@ Application::Application(int argc, char** argv):
     }
 
     //SAMPLERS
-    glGenSamplers(3, samplers);
-    glSamplerParameteri(samplers[0], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glSamplerParameteri(samplers[1], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glSamplerParameteri(samplers[2], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glGenSamplers(1, &sampler);
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    //samplerLocation
+    KaLocation = program.getUniformLocation("uKaSampler");
+    KdLocation = program.getUniformLocation("uKdSampler");
+    KsLocation = program.getUniformLocation("uKaSampler");
 
     //LIGHT
-    /*directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
+    directionalLightDir = program.getUniformLocation("uDirectionalLightDir_vs");
     directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
-    pointLightPosition = program.getUniformLocation("uPointLightPosition");
-    pointLightIntensity = program.getUniformLocation("uPointLightIntensity");
-    uKd = program.getUniformLocation("uKd");*/
+    shininess = program.getUniformLocation("uShininess");
 }

@@ -37,10 +37,14 @@ private:
     GLint modelViewMatrix;
     GLint normalMatrix;
 
+    float anglePhi;
+    float angleTheta;
+    float intensityDir;
+    glm::vec3 colorDir;
+
     GLint directionalLightDir;
     GLint directionalLightIntensity;
-    GLint pointLightPosition;
-    GLint pointLightIntensity;
+    GLint shininess;
     GLint uKd;
     GLint uKa;
     GLint uKs;
@@ -53,5 +57,6 @@ private:
 
     //Texture
     std::vector<GLuint> textures;
-    GLuint samplers[3];
+    GLuint sampler;
+    GLuint KaLocation, KdLocation, KsLocation;
 };

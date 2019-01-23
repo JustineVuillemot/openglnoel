@@ -2,13 +2,14 @@
 
 
 //lightning
-//uniform vec3 uDirectionalLightDir;
-//uniform vec3 uDirectionalLightIntensity;
-//uniform vec3 uPointLightPosition;
-//uniform vec3 uPointLightIntensity;
+uniform vec3 uDirectionalLightDir_vs;
+uniform vec3 uDirectionalLightIntensity;
+uniform float uShininess;
+
 uniform vec3 uKa;
 uniform vec3 uKd;
 uniform vec3 uKs;
+
 uniform sampler2D uKaSampler;
 uniform sampler2D uKdSampler;
 uniform sampler2D uKsSampler;
@@ -22,13 +23,15 @@ out vec3 fColor;
 
 void main()
 {
-   	//float distToPointLight = length(uPointLightPosition - vViewSpacePosition);
-	//vec3 dirToPointLight = (uPointLightPosition - vViewSpacePosition) / distToPointLight;
-	//vec3 uKdFinal = uKd; 
-	//* vec3(texture(uKdSampler, vTexCoords));
+	vec3 wi = normalize(uDirectionalLightDir_vs);
+	vec3 wo = normalize(-vViewSpacePosition);
+	vec3 halfVector = (wo + wi)/2;
+	vec3 N = normalize(vViewSpaceNormal);
+	vec3 Li = uDirectionalLightIntensity;
 
-	//fColor = uKdFinal * (uDirectionalLightIntensity * max(0.0, dot(vViewSpaceNormal, uDirectionalLightDir)) 
-	//+ uPointLightIntensity * max(0.0, dot(vViewSpaceNormal, dirToPointLight)) / (distToPointLight * distToPointLight));
+	vec3 ka = uKa*vec3(texture(uKaSampler, vTexCoords));
+	vec3 kd = uKd*vec3(texture(uKdSampler, vTexCoords));
+	vec3 ks = uKs*vec3(texture(uKsSampler, vTexCoords));
 
-	fColor = uKd*vec3(texture(uKdSampler, vTexCoords)) + uKa*vec3(texture(uKaSampler, vTexCoords)) + uKs*vec3(texture(uKsSampler, vTexCoords));
+	fColor =  Li * (kd * max(0.f, dot(wi,N)) + ks * pow( max(0.f, dot(halfVector,N)), uShininess)) + ka;
 }
