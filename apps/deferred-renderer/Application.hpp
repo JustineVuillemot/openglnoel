@@ -7,8 +7,11 @@
 #include <glmlv/simple_geometry.hpp>
 #include <glmlv/scene_loading.hpp>
 
+
+
 class Application
 {
+
 public:
     Application(int argc, char** argv);
 
@@ -59,4 +62,23 @@ private:
     std::vector<GLuint> textures;
     GLuint sampler;
     GLuint KaLocation, KdLocation, KsLocation;
+
+    //Deferred
+
+    enum GBufferTextureType
+    {
+        GPosition = 0,
+        GNormal,
+        GAmbient,
+        GDiffuse,
+        GGlossyShininess,
+        GDepth, // On doit créer une texture de depth mais on écrit pas directement dedans dans le FS. OpenGL le fait pour nous (et l'utilise).
+        GBufferTextureCount
+    };
+
+    GLuint m_GBufferTextures[GBufferTextureCount];
+
+    const GLenum m_GBufferTextureFormat[GBufferTextureCount] = { GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGBA32F, GL_DEPTH_COMPONENT32F };
+
+    GLuint m_FBO;
 };

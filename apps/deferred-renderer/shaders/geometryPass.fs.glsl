@@ -19,7 +19,12 @@ in vec3 vViewSpaceNormal;
 in vec2 vTexCoords;
 
 
-out vec3 fColor;
+layout(location = 0) out vec3 fPosition;
+layout(location = 1) out vec3 fNormal;
+layout(location = 2) out vec3 fAmbient;
+layout(location = 3) out vec3 fDiffuse;
+layout(location = 4) out vec4 fGlossyShininess;
+
 
 void main()
 {
@@ -33,5 +38,11 @@ void main()
 	vec3 kd = uKd*vec3(texture(uKdSampler, vTexCoords));
 	vec3 ks = uKs*vec3(texture(uKsSampler, vTexCoords));
 
-	fColor =  Li * (kd * max(0.f, dot(wi,N)) + ks * pow( max(0.f, dot(halfVector,N)), uShininess)) + ka;
+	fPosition = vViewSpacePosition;
+	fNormal = N;
+	fAmbient = ka;
+	fDiffuse = kd;
+	fGlossyShininess = vec4(ks.x, ks.y, ks.z, uShininess);
+
+	//fColor =  Li * (kd * max(0.f, dot(wi,N)) + ks * pow( max(0.f, dot(halfVector,N)), uShininess)) + ka;
 }

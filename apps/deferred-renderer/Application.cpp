@@ -74,6 +74,8 @@ int Application::run()
                     glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KsTextureId]);
                 }
             }
+
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
             
 
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
@@ -231,4 +233,37 @@ Application::Application(int argc, char** argv):
     directionalLightDir = program.getUniformLocation("uDirectionalLightDir_vs");
     directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
     shininess = program.getUniformLocation("uShininess");
+
+
+    //Deferred
+    GLuint m_GBufferTextures[GBufferTextureCount];
+    glGenTextures(GBufferTextureCount, &m_GBufferTextures);
+
+    for(int i = 0; i < GBufferTextureCount; ++i){
+        glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
+        glTexStorage2D(GL_TEXTURE_2D, 1, m_GBufferTextureFormat[i], m_nWindowWidth, m_nWindowHeight);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    //FBO
+    glGenFramebuffers(1, &m_FBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
+
+    for(int i = 0; i < GBufferTextureCount - 1; ++i){
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, m_GBufferTextures[i], 0);
+    }
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_GBufferTextures[5], 0);
+
+    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
+    glDrawBuffers(5, drawBuffers);
+
+    GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            std::cerr << "FB error, status: " << status << std::endl;
+            throw std::runtime_error("FBO error");
+        }
+    
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    
 }
