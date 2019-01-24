@@ -225,7 +225,7 @@ Application::Application(int argc, char** argv):
     //samplerLocation
     KaLocation = program.getUniformLocation("uKaSampler");
     KdLocation = program.getUniformLocation("uKdSampler");
-    KsLocation = program.getUniformLocation("uKaSampler");
+    KsLocation = program.getUniformLocation("uKsSampler");
 
     //LIGHT
     directionalLightDir = program.getUniformLocation("uDirectionalLightDir_vs");
