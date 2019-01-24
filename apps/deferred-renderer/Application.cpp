@@ -10,18 +10,23 @@ int Application::run()
 	// Put here code to run before rendering loop
     glClearColor(1,0,0,1);
 
-    //Change unit texture
-    glUniform1i(KaLocation, 0); // Set the uniform to 0 because we use texture unit 0
-    glUniform1i(KdLocation, 1); // Set the uniform to 1 because we use texture unit 1
-    glUniform1i(KsLocation, 2); // Set the uniform to 2 because we use texture unit 2
-
+    
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
         const auto seconds = glfwGetTime();
 
+        for(int i = 0; i < 5; ++i){
+            glBindSampler(i, sampler);
+        }
+
         // Put here rendering code
-        
+        programGeometry.use();
+
+        //Change unit texture
+        glUniform1i(KaLocation, 0); // Set the uniform to 0 because we use texture unit 0
+        glUniform1i(KdLocation, 1); // Set the uniform to 1 because we use texture unit 1
+        glUniform1i(KsLocation, 2); // Set the uniform to 2 because we use texture unit 2
 
         //Matrix
         MVMatrix = glm::translate(view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
@@ -31,13 +36,6 @@ int Application::run()
         glUniformMatrix4fv( modelViewMatrix, 1, GL_FALSE, glm::value_ptr( MVMatrix ));
         glUniformMatrix4fv( normalMatrix, 1, GL_FALSE, glm::value_ptr( NormalMatrix ));
 
-        //samplers
-        //glActiveTexture(GL_TEXTURE0);
-        glBindSampler(0, sampler);
-        //glActiveTexture(GL_TEXTURE1);
-        glBindSampler(1, sampler);
-        //glActiveTexture(GL_TEXTURE2);
-        glBindSampler(2, sampler);
 
         glBindVertexArray(vao);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
@@ -48,10 +46,6 @@ int Application::run()
         auto indexOffset = 0;
         int indexShape = 0;
 
-        //Lightning - General
-        //glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
-        //glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
-
 
         for (const auto indexCount: data.indexCountPerShape)
         {
@@ -59,20 +53,29 @@ int Application::run()
             auto materialID = data.materialIDPerShape[indexShape];
             if(materialID != -1){
                 glUniform1f( shininess, data.materials[materialID].shininess);
+                glActiveTexture(GL_TEXTURE0);
                 if(data.materials[materialID].KaTextureId != -1){
-                    glActiveTexture(GL_TEXTURE0);
                     glUniform3fv(uKa, 1, glm::value_ptr(data.materials[materialID].Ka));
                     glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KaTextureId]);
                 }
+                else{
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                glActiveTexture(GL_TEXTURE1);
                 if(data.materials[materialID].KdTextureId != -1){
-                    glActiveTexture(GL_TEXTURE1);
                     glUniform3fv(uKd, 1, glm::value_ptr(data.materials[materialID].Kd));
                     glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KdTextureId]);
                 }
+                else{
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                glActiveTexture(GL_TEXTURE2);
                 if(data.materials[materialID].KsTextureId != -1){
-                    glActiveTexture(GL_TEXTURE2);
                     glUniform3fv(uKs, 1, glm::value_ptr(data.materials[materialID].Ks));
                     glBindTexture(GL_TEXTURE_2D, textures[data.materials[materialID].KsTextureId]);
+                }
+                else{
+                    glBindTexture(GL_TEXTURE_2D, 0);
                 }
             }
 
@@ -101,10 +104,41 @@ int Application::run()
 
 
         //Lecture
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FBO);
-        glReadBuffer(GL_COLOR_ATTACHMENT0 + textureToPrint);
-        glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight,  GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        if(printTexture == 1){
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FBO);
+            glReadBuffer(GL_COLOR_ATTACHMENT0 + textureToPrint);
+            glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight,  GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        }   
+        else{
+
+            programShading.use();
+            glBindVertexArray(vaoQuad);
+            
+            //Lightning - General
+            glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+            glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
+            
+
+            for(int i = 0; i < 5; ++i){
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
+            }
+
+            glUniform1i(positionLocation, 0); // Set the uniform to 0 because we use texture unit 0
+            glUniform1i(normalLocation, 1); // Set the uniform to 1 because we use texture unit 1
+            glUniform1i(ambientLocation, 2);
+            glUniform1i(diffuseLocation, 3);
+            glUniform1i(glossyLocation, 4);
+
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+            for(int i = 0; i < 5; ++i){
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+
+        }
 
         
 
@@ -114,13 +148,15 @@ int Application::run()
         {
             ImGui::Begin("GUI");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            /*if (ImGui::CollapsingHeader("Directional Light"))
+            if (ImGui::CollapsingHeader("Directional Light"))
             {
                 ImGui::DragFloat("Dir angle Phi", &anglePhi);
                 ImGui::DragFloat("Dir angle Theta", &angleTheta);
                 ImGui::DragFloat("DirLightIntensity", &intensityDir);
                 ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
-            }*/
+            }
+            ImGui::RadioButton("Result", &printTexture, 0);  ImGui::SameLine();
+            ImGui::RadioButton("One texture", &printTexture, 1);
             if (ImGui::CollapsingHeader("FrameBuffer image"))
             {
                 ImGui::RadioButton("GPosition", &textureToPrint, 0);  ImGui::SameLine();
@@ -160,17 +196,18 @@ Application::Application(int argc, char** argv):
     angleTheta(10),
     intensityDir(10),
     colorDir {50,50,50},
-    textureToPrint {1}
+    textureToPrint {2},
+    printTexture {1}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
     // Put here initialization code
-    //PROGRAM
+    //_____________________________________________________PROGRAM   FRAGMENT SHADER___________________________________________________________________________________________
     const auto pathToSMVS = m_ShadersRootPath / m_AppName / "geometryPass.vs.glsl";
     const auto pathToSMFS = m_ShadersRootPath / m_AppName / "geometryPass.fs.glsl";
 
-    program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
-    program.use();
+    programGeometry = glmlv::compileProgram({pathToSMVS, pathToSMFS});
+    programGeometry.use();
 
 
     glmlv::loadObjScene(m_AssetsRootPath / m_AppName / "sponza/sponza.obj", data);
@@ -223,15 +260,15 @@ Application::Application(int argc, char** argv):
 
     //getUniform
     //MATRIX
-    modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
-    modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
-    normalMatrix = program.getUniformLocation("uNormalMatrix");
+    modelViewProjMatrix = programGeometry.getUniformLocation("uModelViewProjMatrix");
+    modelViewMatrix = programGeometry.getUniformLocation("uModelViewMatrix");
+    normalMatrix = programGeometry.getUniformLocation("uNormalMatrix");
 
     //Texture
     //textures = new GLuint[data.textures.size()];
-    uKd = program.getUniformLocation("uKd");
-    uKa = program.getUniformLocation("uKa");
-    uKs = program.getUniformLocation("uKs");
+    uKd = programGeometry.getUniformLocation("uKd");
+    uKa = programGeometry.getUniformLocation("uKa");
+    uKs = programGeometry.getUniformLocation("uKs");
 
     glActiveTexture(GL_TEXTURE0);
     //glGenTextures(data.textures.size(), textures);
@@ -251,18 +288,15 @@ Application::Application(int argc, char** argv):
     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
     //samplerLocation
-    KaLocation = program.getUniformLocation("uKaSampler");
-    KdLocation = program.getUniformLocation("uKdSampler");
-    KsLocation = program.getUniformLocation("uKaSampler");
+    KaLocation = programGeometry.getUniformLocation("uKaSampler");
+    KdLocation = programGeometry.getUniformLocation("uKdSampler");
+    KsLocation = programGeometry.getUniformLocation("uKsSampler");
 
-    //LIGHT
-    //directionalLightDir = program.getUniformLocation("uDirectionalLightDir_vs");
-    //directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
-    shininess = program.getUniformLocation("uShininess");
+    
+    shininess = programGeometry.getUniformLocation("uShininess");
 
 
     //Deferred
-    GLuint m_GBufferTextures[GBufferTextureCount];
     glGenTextures(GBufferTextureCount, m_GBufferTextures);
 
     for(int i = 0; i < GBufferTextureCount; ++i){
@@ -291,5 +325,65 @@ Application::Application(int argc, char** argv):
     }
     
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+
+
+
+    //_____________________________________________________PROGRAM   SHADING SHADER___________________________________________________________________________________________
+    const auto pathToSPVS = m_ShadersRootPath / m_AppName / "shadingPass.vs.glsl";
+    const auto pathToSPFS = m_ShadersRootPath / m_AppName / "shadingPass.fs.glsl";
+
+    programShading = glmlv::compileProgram({pathToSPVS, pathToSPFS});
+    programShading.use();
+
+    //LIGHT
+    directionalLightDir = programShading.getUniformLocation("uDirectionalLightDir_vs");
+    directionalLightIntensity = programShading.getUniformLocation("uDirectionalLightIntensity");
+
+    positionLocation = programShading.getUniformLocation("uGPosition");
+    normalLocation = programShading.getUniformLocation("uGNormal");
+    ambientLocation = programShading.getUniformLocation("uGAmbient");
+    diffuseLocation = programShading.getUniformLocation("uGDiffuse");
+    glossyLocation = programShading.getUniformLocation("uGlossyShininess");
+
+    //Construction cube
     
+    glGenBuffers(1, &vboQuad);
+    glGenBuffers(1, &iboQuad);
+    glGenVertexArrays(1, &vaoQuad);
+
+    glm::vec2 vertexBufferQuad[] = {
+        glm::vec2(-1, -1),
+        glm::vec2(1, -1),
+        glm::vec2(1, 1),
+        glm::vec2(-1, 1)
+    };
+
+    uint32_t indexBufferQuad[] = {
+        0, 1, 2,
+        2, 3, 0
+    };
+
+    //VBO
+    glBindBuffer(GL_ARRAY_BUFFER, vboQuad);
+    glBufferStorage(GL_ARRAY_BUFFER, sizeof(vertexBufferQuad), vertexBufferQuad, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    //IBO
+    glBindBuffer(GL_ARRAY_BUFFER, iboQuad);
+    glBufferStorage(GL_ARRAY_BUFFER, sizeof(indexBufferQuad), indexBufferQuad, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    //VAO
+    glBindVertexArray(vaoQuad);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboQuad);
+
+    glEnableVertexAttribArray(VERTEX_ATTR_POSITION);
+    glBindBuffer(GL_ARRAY_BUFFER, vboQuad);
+    glVertexAttribPointer(VERTEX_ATTR_POSITION, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindVertexArray(0);
+
 }

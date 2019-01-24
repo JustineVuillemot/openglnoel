@@ -28,11 +28,7 @@ layout(location = 4) out vec4 fGlossyShininess;
 
 void main()
 {
-	//vec3 wi = normalize(uDirectionalLightDir_vs);
-	//vec3 wo = normalize(-vViewSpacePosition);
-	//vec3 halfVector = (wo + wi)/2;
 	vec3 N = normalize(vViewSpaceNormal);
-	//vec3 Li = uDirectionalLightIntensity;
 
 	vec3 ka = uKa*vec3(texture(uKaSampler, vTexCoords));
 	vec3 kd = uKd*vec3(texture(uKdSampler, vTexCoords));
@@ -44,5 +40,4 @@ void main()
 	fDiffuse = kd;
 	fGlossyShininess = vec4(ks.x, ks.y, ks.z, uShininess);
 
-	//fColor =  Li * (kd * max(0.f, dot(wi,N)) + ks * pow( max(0.f, dot(halfVector,N)), uShininess)) + ka;
 }

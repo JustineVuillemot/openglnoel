@@ -34,7 +34,7 @@ private:
 
     //float sceneSize;
 
-    glmlv::GLProgram program;
+    glmlv::GLProgram programGeometry, programShading;
 
     GLint modelViewProjMatrix;
     GLint modelViewMatrix;
@@ -45,8 +45,6 @@ private:
     float intensityDir;
     glm::vec3 colorDir;
 
-    GLint directionalLightDir;
-    GLint directionalLightIntensity;
     GLint shininess;
     GLint uKd;
     GLint uKa;
@@ -83,4 +81,13 @@ private:
     GLuint m_FBO;
 
     int textureToPrint;
+    int printTexture;
+
+    //Shading uniform
+    GLint directionalLightDir;
+    GLint directionalLightIntensity;
+
+    GLuint positionLocation, normalLocation, ambientLocation, diffuseLocation, glossyLocation;
+
+    GLuint vboQuad, vaoQuad, iboQuad;
 };
