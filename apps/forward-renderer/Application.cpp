@@ -35,8 +35,8 @@ int Application::run()
     Textures
     *******/
     //charger
-    const auto pathToCubeTex = m_AssetsRootPath / m_AppName / "textures/cube.jpg";
-    const auto pathToSphereTex = m_AssetsRootPath / m_AppName / "textures/sphere.JPG";
+    const auto pathToCubeTex = m_AssetsRootPath / "textures/cube.jpg";
+    const auto pathToSphereTex = m_AssetsRootPath / "textures/sphere.JPG";
 
     glmlv::Image2DRGBA cubeTex = glmlv::readImage(pathToCubeTex);
     glmlv::Image2DRGBA sphereTex = glmlv::readImage(pathToSphereTex);
@@ -176,7 +176,7 @@ Application::Application(int argc, char** argv):
     m_AppName { m_AppPath.stem().string() },
     m_ImGuiIniFilename { m_AppName + ".imgui.ini" },
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
-    m_AssetsRootPath { m_AppPath.parent_path() / "assets" }
+    m_AssetsRootPath { glmlv::fs::path{ argv[1] } }
 
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file

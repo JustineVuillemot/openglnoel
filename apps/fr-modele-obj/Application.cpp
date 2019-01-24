@@ -130,7 +130,7 @@ Application::Application(int argc, char** argv):
     m_viewController { m_GLFWHandle.window() },
     m_ImGuiIniFilename { m_AppName + ".imgui.ini" },
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
-    m_AssetsRootPath { m_AppPath.parent_path() / "assets" }
+    m_AssetsRootPath { glmlv::fs::path{ argv[1] } }
 
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
@@ -138,7 +138,7 @@ Application::Application(int argc, char** argv):
     // Put here initialization code
 
     //SCENE LOADING
-    const auto pathToSceneData = m_AssetsRootPath / m_AppName / "sponza/sponza.obj";
+    const auto pathToSceneData = m_AssetsRootPath / "sponza/sponza.obj";
     glmlv::loadObjScene(pathToSceneData, m_scData);
 
     const auto sceneDiagonalSize = glm::length(m_scData.bboxMax - m_scData.bboxMin);
