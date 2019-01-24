@@ -81,4 +81,6 @@ private:
     const GLenum m_GBufferTextureFormat[GBufferTextureCount] = { GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGBA32F, GL_DEPTH_COMPONENT32F };
 
     GLuint m_FBO;
+
+    int textureToPrint;
 };

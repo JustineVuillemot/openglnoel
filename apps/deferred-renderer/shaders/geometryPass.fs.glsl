@@ -2,8 +2,8 @@
 
 
 //lightning
-uniform vec3 uDirectionalLightDir_vs;
-uniform vec3 uDirectionalLightIntensity;
+//uniform vec3 uDirectionalLightDir_vs;
+//uniform vec3 uDirectionalLightIntensity;
 uniform float uShininess;
 
 uniform vec3 uKa;
@@ -28,11 +28,11 @@ layout(location = 4) out vec4 fGlossyShininess;
 
 void main()
 {
-	vec3 wi = normalize(uDirectionalLightDir_vs);
-	vec3 wo = normalize(-vViewSpacePosition);
-	vec3 halfVector = (wo + wi)/2;
+	//vec3 wi = normalize(uDirectionalLightDir_vs);
+	//vec3 wo = normalize(-vViewSpacePosition);
+	//vec3 halfVector = (wo + wi)/2;
 	vec3 N = normalize(vViewSpaceNormal);
-	vec3 Li = uDirectionalLightIntensity;
+	//vec3 Li = uDirectionalLightIntensity;
 
 	vec3 ka = uKa*vec3(texture(uKaSampler, vTexCoords));
 	vec3 kd = uKd*vec3(texture(uKdSampler, vTexCoords));

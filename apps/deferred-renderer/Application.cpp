@@ -8,7 +8,7 @@
 int Application::run()
 {
 	// Put here code to run before rendering loop
-    //glClearColor(1,0,0,1);
+    glClearColor(1,0,0,1);
 
     //Change unit texture
     glUniform1i(KaLocation, 0); // Set the uniform to 0 because we use texture unit 0
@@ -21,10 +21,7 @@ int Application::run()
         const auto seconds = glfwGetTime();
 
         // Put here rendering code
-        const auto fbSize = m_GLFWHandle.framebufferSize();
-        glViewport(0, 0, fbSize.x, fbSize.y);
-
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
 
         //Matrix
         MVMatrix = glm::translate(view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
@@ -43,13 +40,17 @@ int Application::run()
         glBindSampler(2, sampler);
 
         glBindVertexArray(vao);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
+
+        glViewport(0, 0, m_nWindowWidth, m_nWindowHeight);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         auto indexOffset = 0;
         int indexShape = 0;
 
-
         //Lightning - General
-        glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
-        glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
+        //glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+        //glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
 
 
         for (const auto indexCount: data.indexCountPerShape)
@@ -75,13 +76,12 @@ int Application::run()
                 }
             }
 
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
+            
             
 
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
             indexOffset += indexCount;
             ++indexShape;
-            
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, 0); // débind sur l'unité GL_TEXTURE0
@@ -91,18 +91,43 @@ int Application::run()
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindVertexArray(0);
+
+
+        const auto fbSize = m_GLFWHandle.framebufferSize();
+        glViewport(0, 0, fbSize.x, fbSize.y);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        //Lecture
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FBO);
+        glReadBuffer(GL_COLOR_ATTACHMENT0 + textureToPrint);
+        glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight,  GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+        
+
         // GUI code:
 		glmlv::imguiNewFrame();
 
         {
             ImGui::Begin("GUI");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            if (ImGui::CollapsingHeader("Directional Light"))
+            /*if (ImGui::CollapsingHeader("Directional Light"))
             {
                 ImGui::DragFloat("Dir angle Phi", &anglePhi);
                 ImGui::DragFloat("Dir angle Theta", &angleTheta);
                 ImGui::DragFloat("DirLightIntensity", &intensityDir);
                 ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
+            }*/
+            if (ImGui::CollapsingHeader("FrameBuffer image"))
+            {
+                ImGui::RadioButton("GPosition", &textureToPrint, 0);  ImGui::SameLine();
+                ImGui::RadioButton("GNormal", &textureToPrint, 1); ImGui::SameLine();
+                ImGui::RadioButton("GAmbient", &textureToPrint, 2); ImGui::SameLine();
+                ImGui::RadioButton("GDiffuse", &textureToPrint, 3); ImGui::SameLine();
+                ImGui::RadioButton("GGlossyShininess", &textureToPrint, 4);
             }
             ImGui::End();
         }
@@ -134,7 +159,8 @@ Application::Application(int argc, char** argv):
     anglePhi(10),
     angleTheta(10),
     intensityDir(10),
-    colorDir {50,50,50}
+    colorDir {50,50,50},
+    textureToPrint {1}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
@@ -230,14 +256,14 @@ Application::Application(int argc, char** argv):
     KsLocation = program.getUniformLocation("uKaSampler");
 
     //LIGHT
-    directionalLightDir = program.getUniformLocation("uDirectionalLightDir_vs");
-    directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
+    //directionalLightDir = program.getUniformLocation("uDirectionalLightDir_vs");
+    //directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
     shininess = program.getUniformLocation("uShininess");
 
 
     //Deferred
     GLuint m_GBufferTextures[GBufferTextureCount];
-    glGenTextures(GBufferTextureCount, &m_GBufferTextures);
+    glGenTextures(GBufferTextureCount, m_GBufferTextures);
 
     for(int i = 0; i < GBufferTextureCount; ++i){
         glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
@@ -259,10 +285,10 @@ Application::Application(int argc, char** argv):
 
     GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
 
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            std::cerr << "FB error, status: " << status << std::endl;
-            throw std::runtime_error("FBO error");
-        }
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "FB error, status: " << status << std::endl;
+        throw std::runtime_error("FBO error");
+    }
     
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     
