@@ -9,6 +9,7 @@ int Application::run()
 {
 	// Put here code to run before rendering loop
     glClearColor(1,0,0,1);
+    int GUIGBufferChoice = 0;
 
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
@@ -20,19 +21,15 @@ int Application::run()
         m_normalMatrix = glm::transpose(glm::inverse(m_MVMatrix));
 
         // Put here rendering code
-		const auto fbSize = m_GLFWHandle.framebufferSize();
-		glViewport(0, 0, fbSize.x, fbSize.y);
-
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-
+		
         //Projection and Normal Matrix
         glUniformMatrix4fv(m_uMVProjMat, 1, false, glm::value_ptr(m_projMatrix * m_MVMatrix));
         glUniformMatrix4fv(m_uMVMat, 1, false, glm::value_ptr(m_MVMatrix));
         glUniformMatrix4fv(m_uNormMat, 1, false, glm::value_ptr(m_normalMatrix));
 
         //Lights
-        glUniform3fv(m_uLightDir_vs, 1, glm::value_ptr(m_viewController.getViewMatrix() * glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)));
-        glUniform3fv(m_uLightIn, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+        //glUniform3fv(m_uLightDir_vs, 1, glm::value_ptr(m_viewController.getViewMatrix() * glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)));
+        //glUniform3fv(m_uLightIn, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
 
         //Samplers
         glBindSampler(0, m_samplerObj);
@@ -47,6 +44,9 @@ int Application::run()
         //Draw
         glBindVertexArray(m_vao);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo);
+
+        glViewport(0, 0, m_nWindowWidth, m_nWindowHeight);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
         auto indexOffset = 0;
         auto indexShape = 0;
@@ -98,8 +98,18 @@ int Application::run()
             ++indexShape;
         }
 
-        glBindVertexArray(0);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindVertexArray(0);
+
+        const auto fbSize = m_GLFWHandle.framebufferSize();
+        glViewport(0, 0, fbSize.x, fbSize.y);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+        //Deferred Rendering Tests
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
+            glReadBuffer(GL_COLOR_ATTACHMENT0 + GUIGBufferChoice);
+            glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
         // GUI code:
 		glmlv::imguiNewFrame();
@@ -107,6 +117,13 @@ int Application::run()
         {
             ImGui::Begin("GUI");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+            ImGui::RadioButton("GPosition", &GUIGBufferChoice, 0); ImGui::SameLine();
+            ImGui::RadioButton("GNormal", &GUIGBufferChoice, 1); ImGui::SameLine();
+            ImGui::RadioButton("GAmbient", &GUIGBufferChoice, 2);
+            ImGui::RadioButton("GDiffuse", &GUIGBufferChoice, 3); ImGui::SameLine();
+            ImGui::RadioButton("GGlossyShininess", &GUIGBufferChoice, 4);
+
             ImGui::End();
         }
 
@@ -145,7 +162,7 @@ Application::Application(int argc, char** argv):
     glmlv::loadObjScene(pathToSceneData, m_scData);
 
     const auto sceneDiagonalSize = glm::length(m_scData.bboxMax - m_scData.bboxMin);
-    m_viewController.setSpeed(sceneDiagonalSize * 0.1f);
+    m_viewController.setSpeed(sceneDiagonalSize * 0.5f);
 
     m_projMatrix = glm::perspective(70.f, float(m_nWindowWidth) / m_nWindowHeight, 0.01f * sceneDiagonalSize, sceneDiagonalSize);
 
@@ -199,8 +216,8 @@ Application::Application(int argc, char** argv):
     m_uKd = m_program.getUniformLocation("uKd");
     m_uKs = m_program.getUniformLocation("uKs");
 
-    m_uLightDir_vs = m_program.getUniformLocation("uLightDir_vs");
-    m_uLightIn = m_program.getUniformLocation("uLightIntensity");
+    //m_uLightDir_vs = m_program.getUniformLocation("uLightDir_vs");
+    //m_uLightIn = m_program.getUniformLocation("uLightIntensity");
     m_ushininess = m_program.getUniformLocation("shininess");
 
     //Textures

@@ -4,8 +4,8 @@ in vec3 vViewSpacePosition;
 in vec3 vViewSpaceNormal;
 in vec2 vTexCoords;
 
-uniform vec3 uLightDir_vs;
-uniform vec3 uLightIntensity;
+//uniform vec3 uLightDir_vs;
+//uniform vec3 uLightIntensity;
 
 uniform float shininess;
 
