@@ -26,20 +26,23 @@ private:
 
     glmlv::SceneData m_scData;
     glmlv::ViewController m_viewController;
-    glmlv::GLProgram m_program;
+    glmlv::GLProgram m_programGeomatry;
+    glmlv::GLProgram m_programShading;
 
-    GLuint m_vbo;
-    GLuint m_vao;
-    GLuint m_ibo;
+    GLuint m_vbo, m_vboQuad;
+    GLuint m_vao, m_vaoQuad;
+    GLuint m_ibo, m_iboQuad;
     GLuint m_fbo;
 
     //FOR VAO
     const GLuint VERTEX_ATTR_POSITION = 0;
     const GLuint VERTEX_ATTR_NORMAL = 1;
     const GLuint VERTEX_ATTR_TEXCOORDS = 2;
+    const GLuint QUAD_VERTEX_ATTR_POS = 0;
 
     glm::mat4 m_projMatrix, m_MVMatrix, m_normalMatrix, m_MVProjMatrix;
-    GLint m_uMVProjMat, m_uMVMat, m_uNormMat, m_usampler2Da, m_usampler2Dd, m_usampler2Ds, m_uKa, m_uKd, m_uKs, /*m_uLightDir_vs, m_uLightIn,*/ m_ushininess;
+    GLint m_uMVProjMat, m_uMVMat, m_uNormMat, m_usampler2Da, m_usampler2Dd, m_usampler2Ds, m_uKa, m_uKd, m_uKs, m_ushininess; //Geometry pass uniform
+    GLint m_uLightDir_vs, m_uLightIn, m_uGPosition, m_uGNormal, m_uGAmbient, m_uGDiffuse, m_uGlossyShininess; //Shading pass uniform
 
     //Textures
     std::vector<GLuint> m_objTextures;

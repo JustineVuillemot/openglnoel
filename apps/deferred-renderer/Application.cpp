@@ -9,7 +9,11 @@ int Application::run()
 {
 	// Put here code to run before rendering loop
     glClearColor(1,0,0,1);
-    int GUIGBufferChoice = 0;
+    //int GUIGBufferChoice = 0;
+
+    for (GLint i = 0; i < 5; ++i) {
+        glBindSampler(i, m_samplerObj);
+    }
 
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
@@ -21,24 +25,16 @@ int Application::run()
         m_normalMatrix = glm::transpose(glm::inverse(m_MVMatrix));
 
         // Put here rendering code
+        m_programGeomatry.use();
 		
         //Projection and Normal Matrix
         glUniformMatrix4fv(m_uMVProjMat, 1, false, glm::value_ptr(m_projMatrix * m_MVMatrix));
         glUniformMatrix4fv(m_uMVMat, 1, false, glm::value_ptr(m_MVMatrix));
         glUniformMatrix4fv(m_uNormMat, 1, false, glm::value_ptr(m_normalMatrix));
 
-        //Lights
-        //glUniform3fv(m_uLightDir_vs, 1, glm::value_ptr(m_viewController.getViewMatrix() * glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)));
-        //glUniform3fv(m_uLightIn, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
-
         //Samplers
-        glBindSampler(0, m_samplerObj);
         glUniform1i(m_usampler2Da, 0);
-
-        glBindSampler(1, m_samplerObj);
         glUniform1i(m_usampler2Dd, 1);
-
-        glBindSampler(2, m_samplerObj);
         glUniform1i(m_usampler2Ds, 2);
 
         //Draw
@@ -105,11 +101,36 @@ int Application::run()
         glViewport(0, 0, fbSize.x, fbSize.y);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-        //Deferred Rendering Tests
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
-            glReadBuffer(GL_COLOR_ATTACHMENT0 + GUIGBufferChoice);
-            glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        //Shading Pass Step
+        m_programShading.use();
+
+        //Lights
+        glUniform3fv(m_uLightDir_vs, 1, glm::value_ptr(m_viewController.getViewMatrix() * glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)));
+        glUniform3fv(m_uLightIn, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+
+        glBindVertexArray(m_vaoQuad);
+
+        //GBUffer Textures
+        for(int i = 0; i < 5; ++i){
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
+        };
+
+        glUniform1i(m_uGPosition, 0);
+        glUniform1i(m_uGNormal, 1);
+        glUniform1i(m_uGAmbient, 2);
+        glUniform1i(m_uGDiffuse, 3);
+        glUniform1i(m_uGlossyShininess, 4);
+
+        //draw Quad for Shading Pass
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        for(int i = 0; i < 5; ++i){
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+
+        glBindVertexArray(0);
 
         // GUI code:
 		glmlv::imguiNewFrame();
@@ -118,11 +139,11 @@ int Application::run()
             ImGui::Begin("GUI");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-            ImGui::RadioButton("GPosition", &GUIGBufferChoice, 0); ImGui::SameLine();
+            /*ImGui::RadioButton("GPosition", &GUIGBufferChoice, 0); ImGui::SameLine();
             ImGui::RadioButton("GNormal", &GUIGBufferChoice, 1); ImGui::SameLine();
             ImGui::RadioButton("GAmbient", &GUIGBufferChoice, 2);
             ImGui::RadioButton("GDiffuse", &GUIGBufferChoice, 3); ImGui::SameLine();
-            ImGui::RadioButton("GGlossyShininess", &GUIGBufferChoice, 4);
+            ImGui::RadioButton("GGlossyShininess", &GUIGBufferChoice, 4);*/
 
             ImGui::End();
         }
@@ -196,29 +217,28 @@ Application::Application(int argc, char** argv):
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    //PROGRAM CREATION
-    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "geometryPass.vs.glsl";
-    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "geometryPass.fs.glsl";
+    //PROGRAM CREATION - GEOMETRY PASS SHADERS
+    const auto pathToGPVS = m_ShadersRootPath / m_AppName / "geometryPass.vs.glsl";
+    const auto pathToGPFS = m_ShadersRootPath / m_AppName / "geometryPass.fs.glsl";
 
-    m_program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
-    m_program.use();
+    m_programGeomatry = glmlv::compileProgram({pathToGPVS, pathToGPFS});
+    m_programGeomatry.use();
 
     //VS UNIFORM
-    m_uMVProjMat = m_program.getUniformLocation("uModelViewProjMatrix");
-    m_uMVMat = m_program.getUniformLocation("uModelViewMatrix");
-    m_uNormMat = m_program.getUniformLocation("uNormalMatrix");
+    m_uMVProjMat = m_programGeomatry.getUniformLocation("uModelViewProjMatrix");
+    m_uMVMat = m_programGeomatry.getUniformLocation("uModelViewMatrix");
+    m_uNormMat = m_programGeomatry.getUniformLocation("uNormalMatrix");
 
-    m_usampler2Da = m_program.getUniformLocation("uKaSampler");
-    m_usampler2Dd = m_program.getUniformLocation("uKdSampler");
-    m_usampler2Ds = m_program.getUniformLocation("uKsSampler");
+    //FS UNIFORM
+    m_usampler2Da = m_programGeomatry.getUniformLocation("uKaSampler");
+    m_usampler2Dd = m_programGeomatry.getUniformLocation("uKdSampler");
+    m_usampler2Ds = m_programGeomatry.getUniformLocation("uKsSampler");
 
-    m_uKa = m_program.getUniformLocation("uKa");
-    m_uKd = m_program.getUniformLocation("uKd");
-    m_uKs = m_program.getUniformLocation("uKs");
+    m_uKa = m_programGeomatry.getUniformLocation("uKa");
+    m_uKd = m_programGeomatry.getUniformLocation("uKd");
+    m_uKs = m_programGeomatry.getUniformLocation("uKs");
 
-    //m_uLightDir_vs = m_program.getUniformLocation("uLightDir_vs");
-    //m_uLightIn = m_program.getUniformLocation("uLightIntensity");
-    m_ushininess = m_program.getUniformLocation("shininess");
+    m_ushininess = m_programGeomatry.getUniformLocation("shininess");
 
     //Textures
     m_objTextures.resize(m_scData.textures.size());
@@ -256,6 +276,50 @@ Application::Application(int argc, char** argv):
         }
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    //VBO - QUAD
+    glm::vec2 quadVertex[] = { glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, -1.0f), glm::vec2(1.0f, 1.0f), glm::vec2(-1.0f, 1.0f) };
+
+    glGenBuffers(1, &m_vboQuad);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vboQuad);
+        glBufferStorage(GL_ARRAY_BUFFER, sizeof(quadVertex), quadVertex, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    //IBO - QUAD
+    int quadIndex[] = { 0, 1, 2, 0, 2, 3 };
+
+    glGenBuffers(1, &m_iboQuad);
+    glBindBuffer(GL_ARRAY_BUFFER, m_iboQuad);
+        glBufferStorage(GL_ARRAY_BUFFER, sizeof(quadIndex), quadIndex, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    //VAO - QUAD
+    glGenVertexArrays(1, &m_vaoQuad);
+
+    glBindVertexArray(m_vaoQuad);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_iboQuad);
+        glEnableVertexAttribArray(QUAD_VERTEX_ATTR_POS);
+
+        glBindBuffer(GL_ARRAY_BUFFER, m_vboQuad);
+            glVertexAttribPointer(QUAD_VERTEX_ATTR_POS, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    //PROGRAM CREATION - SHADING PASS SHADERS
+    const auto pathToSPVS = m_ShadersRootPath / m_AppName / "shadingPass.vs.glsl";
+    const auto pathToSPFS = m_ShadersRootPath / m_AppName / "shadingPass.fs.glsl";
+
+    m_programShading = glmlv::compileProgram({pathToSPVS, pathToSPFS});
+
+    //FS UNIFORM
+    m_uLightDir_vs = m_programShading.getUniformLocation("uLightDir_vs");
+    m_uLightIn = m_programShading.getUniformLocation("uLightIntensity");
+
+    m_uGPosition = m_programShading.getUniformLocation("uGPosition");
+    m_uGNormal = m_programShading.getUniformLocation("uGNormal");
+    m_uGAmbient = m_programShading.getUniformLocation("uGAmbient");
+    m_uGDiffuse = m_programShading.getUniformLocation("uGDiffuse");
+    m_uGlossyShininess = m_programShading.getUniformLocation("uGlossyShininess");
 
     glGenSamplers(1, &m_samplerObj);
     glSamplerParameteri(m_samplerObj, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

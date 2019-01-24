@@ -4,9 +4,6 @@ in vec3 vViewSpacePosition;
 in vec3 vViewSpaceNormal;
 in vec2 vTexCoords;
 
-//uniform vec3 uLightDir_vs;
-//uniform vec3 uLightIntensity;
-
 uniform float shininess;
 
 uniform vec3 uKa;
@@ -24,10 +21,6 @@ layout(location = 3) out vec3 fDiffuse;
 layout(location = 4) out vec4 fGlossyShininess;
 
 void main() {
-	//vec3 wi = normalize(uLightDir_vs);
-	//vec3 Li = uLightIntensity;
-	//vec3 halfVector = (normalize(-vViewSpacePosition) + wi) / 2;
-	//vec3 N = vViewSpaceNormal;
 
 	fNormal = normalize(vViewSpaceNormal);
 	fPosition = vViewSpacePosition;
@@ -35,6 +28,4 @@ void main() {
 	fAmbient = uKa * vec3(texture(uKaSampler, vTexCoords));
 	fDiffuse = uKd * vec3(texture(uKdSampler, vTexCoords));
 	fGlossyShininess = vec4(uKs * vec3(texture(uKsSampler, vTexCoords)), shininess);
-
-	//fFragColor = Li * (uKd * uKdTexture * max(0.f, dot(wi, N)) + uKs * uKsTexture * pow( max(0.f, dot(halfVector, N)), shininess) ) + uKa * uKaTexture;
 }
