@@ -151,6 +151,53 @@ Application::Application(int argc, char** argv):
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
+
+
+	//TINY GLTF
+	/*
+	tinygltf::Model model;
+	tinygltf::TinyGLTF loader;
+	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, input_gltf);
+
+	vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer
+
+	glGenBuffers(buffers.size(), buffers.data())
+	Pour chaque model.buffers
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
+		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
+	}
+
+	vector<GLuint> vaos;
+	vector<tinygltf::Primitive> primitives; // Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
+
+	Pour chaque mesh
+	{
+		Pour chaque primitive
+		{
+			GLuint vaoId;
+			glGenVertexArray(..)
+			glBindVertexArray(..)
+			indexAccessor = models.accessors[model.mesh[i].primitive[j].indices];
+			bufferView = model.bufferViews[indexAccessor.bufferView]
+			bufferIndex = bufferView.buffer
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]) // Ici on bind le buffer OpenGL qui a été rempli dans la premiere boucle
+			pour chaque primitive.attributes:
+			{
+				accesor = models.accessors[model.mesh[i].primitive[j].attributes[key]]; // key est "POSITION", ou "NORMAL", ou autre (voir l'image de spec du format)
+				bufferView = model.bufferViews[ accesor   .bufferView]
+				bufferIndex = bufferView.buffer
+				glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex])
+				glEnableVertexAttribArray(attribIndexOf[key]) // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
+				glVertexAttribPointer(attribIndexOf[key], numberOfComponentOf[accessor.type], accessor.componentType, bufferView.byteStride, (const void*) (bufferView.byteOffset + accessor.byteOffset) // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
+			}
+			vaos.push_back(vaoId);
+			primitives.push_back(primitive)
+		}
+	}
+	
+	*/
+
     // Put here initialization code
     glEnable(GL_DEPTH_TEST);
 
