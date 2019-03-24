@@ -1,24 +1,31 @@
 #version 330 core
 
-layout(location = 0) in vec3 aPosition;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoords;
+// Attributs de sommet
+layout(location = 0) in vec3 aPosition; // Position du sommet
+layout(location = 1) in vec3 aNormal; // Normale du sommet
+layout(location = 2) in vec2 aTexCoords; // Coordonnées de texture du sommet
 
+// Matrices de transformations reçues en uniform
 uniform mat4 uModelViewProjMatrix;
 uniform mat4 uModelViewMatrix;
 uniform mat4 uNormalMatrix;
 
-out vec3 vViewSpacePosition;
-out vec3 vViewSpaceNormal;
-out vec2 vTexCoords;
+// Sorties du shader
+out vec3 vViewSpacePosition; // Position du sommet transformé dans l'espace View
+out vec3 vViewSpaceNormal; // Normale du sommet transformé dans l'espace View
+out vec2 vTexCoords; // Coordonnées de texture du sommet
 
 void main() {
-	vec4 position = vec4(aPosition, 1);
-	vec4 normal = vec4(aNormal, 0);
+    // Passage en coordonnées homogènes
+    vec4 vertexPosition = vec4(aPosition, 1);
+    vec4 vertexNormal = vec4(aNormal, 0);
 
-	vViewSpacePosition = vec3(uModelViewMatrix * position);
-	vViewSpaceNormal = vec3(uNormalMatrix * normal);
+    // Calcul des valeurs de sortie
+    vViewSpacePosition = vec3(uModelViewMatrix * vertexPosition);
+    vViewSpaceNormal = vec3(uNormalMatrix * vertexNormal);
+    vTexCoords = aTexCoords;
 
-	vTexCoords = aTexCoords;
-	gl_Position = uModelViewProjMatrix * position;
+    // Calcul de la position projetée
+    gl_Position = uModelViewProjMatrix * vertexPosition;
+
 }

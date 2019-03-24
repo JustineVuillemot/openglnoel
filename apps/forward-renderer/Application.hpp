@@ -5,6 +5,7 @@
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
 #include <glmlv/simple_geometry.hpp>
+#include <glmlv/Image2DRGBA.hpp>
 
 class Application
 {
@@ -22,10 +23,46 @@ private:
     const std::string m_ImGuiIniFilename;
     const glmlv::fs::path m_ShadersRootPath;
     const glmlv::fs::path m_AssetsRootPath;
-
-    const glmlv::SimpleGeometry cube = glmlv::makeCube();
-    const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
     GLuint vbo[2];
     GLuint vao[2];
     GLuint ibo[2];
+    const glmlv::SimpleGeometry cube = glmlv::makeCube();
+    const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
+
+    glmlv::GLProgram program;
+
+    GLuint textureCube;
+    GLuint textureSphere;
+    GLuint sampler;
+
+    glmlv::ViewController view;
+
+    GLint modelViewProjMatrix;
+    GLint modelViewMatrix;
+    GLint normalMatrix;
+
+    GLint directionalLightDir;
+    GLint directionalLightIntensity;
+    GLint pointLightPosition;
+    GLint pointLightIntensity;
+    GLint uKd;
+
+    //matrix
+    glm::mat4 ProjMatrix;
+    glm::mat4 MVMatrixCube;
+    glm::mat4 MVMatrixSphere;
+    glm::mat4 NormalMatrixCube;
+    glm::mat4 NormalMatrixSphere;
+    glm::mat4 ViewMatrix;
+
+    float anglePhi;
+    float angleTheta;
+    float intensityDir;
+    glm::vec3 colorDir;
+    float intensityPoint;
+    glm::vec3 colorPoint;
+    glm::vec3 pointLightPos;
+    float uKdCube[3];
+    float uKdSphere[3];
+
 };

@@ -1,9 +1,7 @@
 #version 330
 
-in vec3 vViewSpacePosition;
-in vec3 vViewSpaceNormal;
-in vec2 vTexCoords;
 
+//lightning
 uniform vec3 uDirectionalLightDir;
 uniform vec3 uDirectionalLightIntensity;
 uniform vec3 uPointLightPosition;
@@ -11,12 +9,18 @@ uniform vec3 uPointLightIntensity;
 uniform vec3 uKd;
 uniform sampler2D uKdSampler;
 
-out vec3 fFragColor;
+in vec3 vViewSpacePosition; 
+in vec3 vViewSpaceNormal;
+in vec2 vTexCoords;
 
-void main() {
-	float distToPointLight = length(uPointLightPosition - vViewSpacePosition);
+
+out vec3 fColor;
+
+void main()
+{
+   	float distToPointLight = length(uPointLightPosition - vViewSpacePosition);
 	vec3 dirToPointLight = (uPointLightPosition - vViewSpacePosition) / distToPointLight;
-	vec4 uKdTexture = texture(uKdSampler, vTexCoords);
+	vec3 uKdFinal = uKd * vec3(texture(uKdSampler, vTexCoords));
 
-	fFragColor = uKd * vec3(uKdTexture) * (uDirectionalLightIntensity * max(0.0, dot(vViewSpaceNormal, uDirectionalLightDir)) + uPointLightIntensity * max(0.0, dot(vViewSpaceNormal, dirToPointLight)) / (distToPointLight * distToPointLight));
+	fColor = uKdFinal * (uDirectionalLightIntensity * max(0.0, dot(vViewSpaceNormal, uDirectionalLightDir)) + uPointLightIntensity * max(0.0, dot(vViewSpaceNormal, dirToPointLight)) / (distToPointLight * distToPointLight));
 }
