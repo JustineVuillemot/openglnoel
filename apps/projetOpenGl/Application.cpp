@@ -9,6 +9,7 @@
 #include <glmlv/simple_geometry.hpp>
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
+#include <tiny_gltf.h>
 
 
 int Application::run()
@@ -212,7 +213,7 @@ Application::Application(int argc, char** argv):
 
 	std::vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer / c'est les vbos
 
-	glGenBuffers(buffers.size(), buffers.data);
+	glGenBuffers(buffers.size(), buffers.data());
 	for (int i = 0; i < model.buffers.size(); ++i) {
 		glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
 		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
@@ -223,7 +224,7 @@ Application::Application(int argc, char** argv):
 	std::vector<tinygltf::Primitive> primitives; */// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
 
 	for (int i = 0; i < model.meshes.size(); ++i) {
-		for (int j = 0; j < model.meshes[i].primitives.size; ++j) {
+		for (int j = 0; j < model.meshes[i].primitives.size(); ++j) {
 			GLuint vaoId;
 
 			glGenVertexArrays(1, &vaoId);
