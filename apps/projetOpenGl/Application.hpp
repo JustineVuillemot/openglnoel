@@ -76,5 +76,11 @@ private:
 
 	std::vector<GLuint> vaos;
 	std::vector<tinygltf::Primitive> primitives;
+
+	tinygltf::Model model;
+	tinygltf::TinyGLTF loader;
+	std::string err;
+	std::string warn;
+	std::string input_gltf; //filename
 	
 };

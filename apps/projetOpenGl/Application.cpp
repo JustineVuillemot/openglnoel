@@ -81,6 +81,25 @@ int Application::run()
         glDrawElements(GL_TRIANGLES, sphere.indexBuffer.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
+		/*
+		Ensuite pour le rendu on fait une boucle sur tous les VAOs, on bind et on dessine avec glDrawElements, 
+
+		en plus passant le mode de la primitive associé, le nombre d'index (stocké dans le "count" de l'accessor 
+		"indices" de la primitive, le type des index (stocké dans l'accessor aussi), et le byteOffset de l'accessor 
+		pour l'argument "indices" de la fonction (casté en (const void*)). Toutes ces infos sont accessible à partir 
+		du tableau "primitives" qu'on a remplit en meme temps que le tableau "vaos"
+		*/
+
+		for (int i = 0; i < vaos.size(); ++i) {
+			glBindVertexArray(vaos[i]);
+
+			tinygltf::Accessor indexAccessor = model.accessors[primitives[i].indices];
+
+			glDrawElements(primitives[i].mode, indexAccessor.count, indexAccessor.type, (const void*) indexAccessor.byteOffset);
+			glBindVertexArray(0);
+		}
+
+
 		glViewport(0, 0, fbSize.x, fbSize.y);
 
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -190,13 +209,8 @@ Application::Application(int argc, char** argv):
 		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
 	}*/
 
-
-
-	tinygltf::Model model;
-	tinygltf::TinyGLTF loader;
-	std::string err;
-	std::string warn;
-	std::string input_gltf; //filename
+	//glmlv::fs::path gltf_address = m_AssetsRootPath / m_AppName / "gltf" / "scene.gltf";
+	//input_gltf = gltf_address.string;
 
 	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, input_gltf);
 
