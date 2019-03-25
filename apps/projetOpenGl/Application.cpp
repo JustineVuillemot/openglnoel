@@ -1,3 +1,5 @@
+#define  TINYGLTF_IMPLEMENTATION 
+
 #include "Application.hpp"
 
 #include <iostream>
@@ -212,18 +214,18 @@ Application::Application(int argc, char** argv):
 
 	std::vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer / c'est les vbos
 
-	glGenBuffers(buffers.size(), buffers.data);
+	glGenBuffers(buffers.size(), buffers.data());
 	for (int i = 0; i < model.buffers.size(); ++i) {
 		glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
 		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	/*d::vector<GLuint> vaos;
-	std::vector<tinygltf::Primitive> primitives; */// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
+	std::vector<GLuint> vaos;
+	std::vector<tinygltf::Primitive> primitives; /// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
 
 	for (int i = 0; i < model.meshes.size(); ++i) {
-		for (int j = 0; j < model.meshes[i].primitives.size; ++j) {
+		for (int j = 0; j < model.meshes[i].primitives.size(); ++j) {
 			GLuint vaoId;
 
 			glGenVertexArrays(1, &vaoId);
@@ -233,7 +235,7 @@ Application::Application(int argc, char** argv):
 			tinygltf::BufferView bufferView = model.bufferViews[indexAccessor.bufferView];
 			int bufferIndex = bufferView.buffer;
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]); // Ici on bind le buffer OpenGL qui a été rempli dans la premiere boucle
-			
+
 			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
 				tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
 				bufferView = model.bufferViews[accesor.bufferView];
@@ -250,7 +252,7 @@ Application::Application(int argc, char** argv):
 	/*
 	vector<GLuint> vaos;
 	vector<tinygltf::Primitive> primitives; // Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
-
+	
 	Pour chaque mesh
 	{
 		Pour chaque primitive
