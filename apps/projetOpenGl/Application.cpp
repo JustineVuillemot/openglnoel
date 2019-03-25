@@ -1,6 +1,7 @@
 #include "Application.hpp"
 
 #include <iostream>
+#include <vector>
 #include <math.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -152,6 +153,25 @@ Application::Application(int argc, char** argv):
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
 
+	// Put here initialization code
+	glEnable(GL_DEPTH_TEST);
+
+
+	//Initialize map
+	const GLuint VERTEX_ATTR_POSITION = 0;
+	const GLuint VERTEX_ATTR_NORMAL = 1;
+	const GLuint VERTEX_ATTR_TEXCOORDS = 2;
+
+
+	//std::map<int, std::string> attribIndexOf
+	attribIndexOf.insert({"POSITION", VERTEX_ATTR_POSITION});
+	attribIndexOf.insert({"NORMAL", VERTEX_ATTR_NORMAL});
+	//std::map<int, int> numberOfComponentOf
+	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC2, 2});
+	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC3, 3});
+
+	
+
 
 	//TINY GLTF
 	/*
@@ -166,8 +186,68 @@ Application::Application(int argc, char** argv):
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
 		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
+	}*/
+
+
+
+	tinygltf::Model model;
+	tinygltf::TinyGLTF loader;
+	std::string err;
+	std::string warn;
+	std::string input_gltf; //filename
+
+	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, input_gltf);
+
+	if (!warn.empty()) {
+		printf("Warn: %s\n", warn.c_str());
 	}
 
+	if (!err.empty()) {
+		printf("Err: %s\n", err.c_str());
+	}
+
+	if (!ret) {
+		printf("Failed to parse glTF\n");
+	}
+
+	std::vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer / c'est les vbos
+
+	glGenBuffers(buffers.size(), buffers.data);
+	for (int i = 0; i < model.buffers.size(); ++i) {
+		glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
+		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	/*d::vector<GLuint> vaos;
+	std::vector<tinygltf::Primitive> primitives; */// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
+
+	for (int i = 0; i < model.meshes.size(); ++i) {
+		for (int j = 0; j < model.meshes[i].primitives.size; ++j) {
+			GLuint vaoId;
+
+			glGenVertexArrays(1, &vaoId);
+			glBindVertexArray(vaoId);
+
+			tinygltf::Accessor indexAccessor = model.accessors[model.meshes[i].primitives[j].indices];
+			tinygltf::BufferView bufferView = model.bufferViews[indexAccessor.bufferView];
+			int bufferIndex = bufferView.buffer;
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]); // Ici on bind le buffer OpenGL qui a été rempli dans la premiere boucle
+			
+			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
+				tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
+				bufferView = model.bufferViews[accesor.bufferView];
+				bufferIndex = bufferView.buffer;
+				glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex]);
+				glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
+				glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
+			}
+			vaos.push_back(vaoId);
+			primitives.push_back(model.meshes[i].primitives[j]);
+		}
+	}
+
+	/*
 	vector<GLuint> vaos;
 	vector<tinygltf::Primitive> primitives; // Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
 
@@ -195,15 +275,9 @@ Application::Application(int argc, char** argv):
 			primitives.push_back(primitive)
 		}
 	}
-	
 	*/
 
-    // Put here initialization code
-    glEnable(GL_DEPTH_TEST);
-
-    const GLuint VERTEX_ATTR_POSITION = 0;
-    const GLuint VERTEX_ATTR_NORMAL = 1;
-    const GLuint VERTEX_ATTR_TEXCOORDS = 2;
+    
 
     //Construction cube
     

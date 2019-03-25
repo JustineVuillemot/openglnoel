@@ -66,4 +66,10 @@ private:
     float uKdCube[3];
     float uKdSphere[3];
 
+	std::map<std::string, int> attribIndexOf;
+	std::map<int, int> numberOfComponentOf;
+
+	std::vector<GLuint> vaos;
+	std::vector<tinygltf::Primitive> primitives;
+	
 };
