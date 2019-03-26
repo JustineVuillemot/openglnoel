@@ -73,6 +73,7 @@ private:
 
 	std::map<std::string, int> attribIndexOf;
 	std::map<int, int> numberOfComponentOf;
+	std::map<int, GLenum> attribEnum;
 
 	std::vector<GLuint> vaos;
 	std::vector<tinygltf::Primitive> primitives;
@@ -81,6 +82,6 @@ private:
 	tinygltf::TinyGLTF loader;
 	std::string err;
 	std::string warn;
-	std::string input_gltf; //filename
+	//std::string input_gltf; //filename
 	
 };

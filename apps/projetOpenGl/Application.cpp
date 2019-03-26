@@ -11,19 +11,18 @@
 #include <glmlv/simple_geometry.hpp>
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
-#include <tiny_gltf.h>
 
 
 int Application::run()
 {
     //sampler
-    auto uKdSampler = program.getUniformLocation("uKdSampler");
+    //auto uKdSampler = program.getUniformLocation("uKdSampler");
 
     ProjMatrix = glm::perspective(glm::radians(70.f), 1.0f*m_nWindowWidth / m_nWindowHeight, 0.1f, 100.0f);
     
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(uKdSampler, 0); // Set the uniform to 0 because we use texture unit 0
-    glBindSampler(0, sampler);
+    //glActiveTexture(GL_TEXTURE0);
+    //glUniform1i(uKdSampler, 0); // Set the uniform to 0 because we use texture unit 0
+    //glBindSampler(0, sampler);
 
 
     //glClearColor(1,0,0,1);
@@ -33,10 +32,10 @@ int Application::run()
     {
         const auto seconds = glfwGetTime();
 
-        MVMatrixCube = glm::translate(view.getViewMatrix(), glm::vec3(-2.0f, 0.0f, -5.0f));
-        MVMatrixSphere = glm::translate(view.getViewMatrix(), glm::vec3(2.0f, 0.0f, -5.0f));
+        MVMatrixCube = glm::translate(view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
+        //MVMatrixSphere = glm::translate(view.getViewMatrix(), glm::vec3(2.0f, 0.0f, -5.0f));
         NormalMatrixCube = glm::transpose(glm::inverse(MVMatrixCube));
-        NormalMatrixSphere = glm::transpose(glm::inverse(MVMatrixSphere));
+        //NormalMatrixSphere = glm::transpose(glm::inverse(MVMatrixSphere));
 
         // Put here rendering code
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -44,10 +43,10 @@ int Application::run()
         const auto fbSize = m_GLFWHandle.framebufferSize();
 
         //TEXTURES
-        glBindTexture(GL_TEXTURE_2D, textureCube);
+        //glBindTexture(GL_TEXTURE_2D, textureCube);
 
         //Lightning - General
-        glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+        /*glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
         glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
         glUniform3fv( pointLightPosition, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(pointLightPos.x, pointLightPos.y, pointLightPos.z, 1)));
         glUniform3fv( pointLightIntensity, 1, glm::value_ptr( colorPoint*intensityPoint ));
@@ -80,7 +79,7 @@ int Application::run()
 
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, sphere.indexBuffer.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        glBindVertexArray(0);*/
 
 		/*
 		Ensuite pour le rendu on fait une boucle sur tous les VAOs, on bind et on dessine avec glDrawElements, 
@@ -91,15 +90,21 @@ int Application::run()
 		du tableau "primitives" qu'on a remplit en meme temps que le tableau "vaos"
 		*/
 
+		//std::cout << "test" << std::endl;
+		//Envoie des matrices
+		glUniformMatrix4fv(modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr(ProjMatrix * MVMatrixCube));
+		glUniformMatrix4fv(modelViewMatrix, 1, GL_FALSE, glm::value_ptr(MVMatrixCube));
+		glUniformMatrix4fv(normalMatrix, 1, GL_FALSE, glm::value_ptr(NormalMatrixCube));
+
+
 		for (int i = 0; i < vaos.size(); ++i) {
 			glBindVertexArray(vaos[i]);
 
 			tinygltf::Accessor indexAccessor = model.accessors[primitives[i].indices];
-
-			glDrawElements(primitives[i].mode, indexAccessor.count, indexAccessor.type, (const void*) indexAccessor.byteOffset);
+			glDrawElements(primitives[i].mode, indexAccessor.count, indexAccessor.componentType, (const void*) indexAccessor.byteOffset);
 			glBindVertexArray(0);
 		}
-
+		//std::cout << "test2" << std::endl;
 
 		glViewport(0, 0, fbSize.x, fbSize.y);
 
@@ -183,14 +188,30 @@ Application::Application(int argc, char** argv):
 	const GLuint VERTEX_ATTR_POSITION = 0;
 	const GLuint VERTEX_ATTR_NORMAL = 1;
 	const GLuint VERTEX_ATTR_TEXCOORDS = 2;
+	const GLuint VERTEX_ATTR_TANGENT = 3;
 
 
 	//std::map<int, std::string> attribIndexOf
 	attribIndexOf.insert({"POSITION", VERTEX_ATTR_POSITION});
 	attribIndexOf.insert({"NORMAL", VERTEX_ATTR_NORMAL});
+	attribIndexOf.insert({ "TANGENT", VERTEX_ATTR_TANGENT });
+	attribIndexOf.insert({ "TEXCOORD_0", VERTEX_ATTR_TEXCOORDS });
 	//std::map<int, int> numberOfComponentOf
 	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC2, 2});
 	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC3, 3});
+	//std::map<int, GLenum> attribEnum
+	/*
+	#define GL_POINTS                         0x0000
+	#define GL_LINES                          0x0001
+	#define GL_LINE_LOOP                      0x0002
+	#define GL_LINE_STRIP                     0x0003
+	//#define GL_TRIANGLES                      0x0004
+	#define GL_TRIANGLE_STRIP                 0x0005
+	#define GL_TRIANGLE_FAN                   0x0006
+	
+	*/
+	attribEnum.insert({ 4, GL_TRIANGLES });
+
 
 	
 
@@ -213,7 +234,9 @@ Application::Application(int argc, char** argv):
 	//glmlv::fs::path gltf_address = m_AssetsRootPath / m_AppName / "gltf" / "scene.gltf";
 	//input_gltf = gltf_address.string;
 
-	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, input_gltf);
+	std::cout << argv[1] << std::endl;
+
+	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, argv[1]);
 
 	if (!warn.empty()) {
 		printf("Warn: %s\n", warn.c_str());
@@ -227,6 +250,9 @@ Application::Application(int argc, char** argv):
 		printf("Failed to parse glTF\n");
 	}
 
+	std::cout << "TEST HERE 1" << std::endl;
+	
+
 	std::vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer / c'est les vbos
 
 	glGenBuffers(buffers.size(), buffers.data());
@@ -236,8 +262,10 @@ Application::Application(int argc, char** argv):
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	std::vector<GLuint> vaos;
-	std::vector<tinygltf::Primitive> primitives; /// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
+	std::cout << "TEST HERE 2" << std::endl;
+
+	//std::vector<GLuint> vaos;
+	//std::vector<tinygltf::Primitive> primitives; /// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
 
 	for (int i = 0; i < model.meshes.size(); ++i) {
 		for (int j = 0; j < model.meshes[i].primitives.size(); ++j) {
@@ -245,25 +273,30 @@ Application::Application(int argc, char** argv):
 
 			glGenVertexArrays(1, &vaoId);
 			glBindVertexArray(vaoId);
-
 			tinygltf::Accessor indexAccessor = model.accessors[model.meshes[i].primitives[j].indices];
 			tinygltf::BufferView bufferView = model.bufferViews[indexAccessor.bufferView];
 			int bufferIndex = bufferView.buffer;
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]); // Ici on bind le buffer OpenGL qui a été rempli dans la premiere boucle
 
+
 			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
-				tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
-				bufferView = model.bufferViews[accesor.bufferView];
-				bufferIndex = bufferView.buffer;
-				glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex]);
-				glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
-				glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
+				if (it->first != "TANGENT") {
+					tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
+					bufferView = model.bufferViews[accesor.bufferView];
+					bufferIndex = bufferView.buffer;
+					glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex]);
+					glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
+					glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
+					glBindBuffer(GL_ARRAY_BUFFER, 0);
+				}
 			}
+
 			vaos.push_back(vaoId);
+			vaos.size();
 			primitives.push_back(model.meshes[i].primitives[j]);
 		}
 	}
-
+	std::cout << "TEST HERE FINAL" << std::endl;
 	/*
 	vector<GLuint> vaos;
 	vector<tinygltf::Primitive> primitives; // Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
@@ -298,11 +331,11 @@ Application::Application(int argc, char** argv):
 
     //Construction cube
     
-    glGenBuffers(2, vbo);
-    glGenBuffers(2, ibo);
-    glGenVertexArrays(2, vao);
+    //glGenBuffers(2, vbo);
+    //glGenBuffers(2, ibo);
+    //glGenVertexArrays(2, vao);
 
-    //______CUBE_____________________________________
+    /*//______CUBE_____________________________________
     //VBO cube
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glBufferStorage(GL_ARRAY_BUFFER, sizeof(glmlv::Vertex3f3f2f)*cube.vertexBuffer.size(), cube.vertexBuffer.data(), 0);
@@ -355,7 +388,7 @@ Application::Application(int argc, char** argv):
     glVertexAttribPointer(VERTEX_ATTR_TEXCOORDS, 2, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, texCoords));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glBindVertexArray(0);
+    glBindVertexArray(0);*/
 
     //PROGRAM
     const auto pathToSMVS = m_ShadersRootPath / m_AppName / "forward.vs.glsl";
@@ -364,7 +397,7 @@ Application::Application(int argc, char** argv):
     program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
     program.use();
 
-    //TEXTURES
+    /*//TEXTURES
     glmlv::Image2DRGBA imageCube = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "cube.jpg");
     glmlv::Image2DRGBA imageSphere = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "sphere.jpg");
     //CUBE
@@ -389,7 +422,7 @@ Application::Application(int argc, char** argv):
     glGenSamplers(1, &sampler);
     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
+	*/
     //getUniform
     //MATRIX
     modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
@@ -397,10 +430,10 @@ Application::Application(int argc, char** argv):
     normalMatrix = program.getUniformLocation("uNormalMatrix");
 
     //LIGHT
-    directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
+    /*directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
     directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
     pointLightPosition = program.getUniformLocation("uPointLightPosition");
     pointLightIntensity = program.getUniformLocation("uPointLightIntensity");
-    uKd = program.getUniformLocation("uKd");
+    uKd = program.getUniformLocation("uKd");*/
     
 }
