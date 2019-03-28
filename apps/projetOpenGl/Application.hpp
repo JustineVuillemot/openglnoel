@@ -71,12 +71,15 @@ private:
     float uKdCube[3];
     float uKdSphere[3];
 
+	std::map<int, std::vector<double>> meshMatrix;
+
 	std::map<std::string, int> attribIndexOf;
 	std::map<int, int> numberOfComponentOf;
 	std::map<int, GLenum> attribEnum;
 
 	std::vector<GLuint> vaos;
 	std::vector<tinygltf::Primitive> primitives;
+	std::vector<std::vector<double>> matrix;
 
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;

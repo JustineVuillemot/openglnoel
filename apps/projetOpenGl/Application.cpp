@@ -32,9 +32,9 @@ int Application::run()
     {
         const auto seconds = glfwGetTime();
 
-        MVMatrixCube = glm::translate(view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
+        
         //MVMatrixSphere = glm::translate(view.getViewMatrix(), glm::vec3(2.0f, 0.0f, -5.0f));
-        NormalMatrixCube = glm::transpose(glm::inverse(MVMatrixCube));
+        
         //NormalMatrixSphere = glm::transpose(glm::inverse(MVMatrixSphere));
 
         // Put here rendering code
@@ -91,15 +91,32 @@ int Application::run()
 		*/
 
 		//std::cout << "test" << std::endl;
-		//Envoie des matrices
-		glUniformMatrix4fv(modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr(ProjMatrix * MVMatrixCube));
-		glUniformMatrix4fv(modelViewMatrix, 1, GL_FALSE, glm::value_ptr(MVMatrixCube));
-		glUniformMatrix4fv(normalMatrix, 1, GL_FALSE, glm::value_ptr(NormalMatrixCube));
+
+		
 
 
 		for (int i = 0; i < vaos.size(); ++i) {
-			glBindVertexArray(vaos[i]);
+			//std::cout << meshMatrix[i].size() << std::endl;
+			//std::cout << meshMatrix[i][15] << std::endl;
+			/*glm::mat4 meshMat{ meshMatrix[i][0], meshMatrix[i][1] , meshMatrix[i][2], meshMatrix[i][3]
+								, meshMatrix[i][4], meshMatrix[i][5], meshMatrix[i][6], meshMatrix[i][7]
+								, meshMatrix[i][8], meshMatrix[i][9], meshMatrix[i][10], meshMatrix[i][11]
+								, meshMatrix[i][12], meshMatrix[i][13], meshMatrix[i][14], meshMatrix[i][15] };*/
+				
+				
+				//= glm::make_mat4(meshMatrix[i].data());
+			//MVMatrixCube = glm::translate(meshMat*view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
+			MVMatrixCube = glm::translate(view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
+			NormalMatrixCube = glm::transpose(glm::inverse(MVMatrixCube));
 
+			//Envoie des matrices
+			glUniformMatrix4fv(modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr(ProjMatrix * MVMatrixCube));
+			glUniformMatrix4fv(modelViewMatrix, 1, GL_FALSE, glm::value_ptr(MVMatrixCube));
+			glUniformMatrix4fv(normalMatrix, 1, GL_FALSE, glm::value_ptr(NormalMatrixCube));
+
+
+			glBindVertexArray(vaos[i]);
+			
 			tinygltf::Accessor indexAccessor = model.accessors[primitives[i].indices];
 			glDrawElements(primitives[i].mode, indexAccessor.count, indexAccessor.componentType, (const void*) indexAccessor.byteOffset);
 			glBindVertexArray(0);
@@ -188,7 +205,8 @@ Application::Application(int argc, char** argv):
 	const GLuint VERTEX_ATTR_POSITION = 0;
 	const GLuint VERTEX_ATTR_NORMAL = 1;
 	const GLuint VERTEX_ATTR_TEXCOORDS = 2;
-	const GLuint VERTEX_ATTR_TANGENT = 3;
+	const GLuint VERTEX_ATTR_TEXCOORDS1 = 3;
+	const GLuint VERTEX_ATTR_TANGENT = 4;
 
 
 	//std::map<int, std::string> attribIndexOf
@@ -196,9 +214,11 @@ Application::Application(int argc, char** argv):
 	attribIndexOf.insert({"NORMAL", VERTEX_ATTR_NORMAL});
 	attribIndexOf.insert({ "TANGENT", VERTEX_ATTR_TANGENT });
 	attribIndexOf.insert({ "TEXCOORD_0", VERTEX_ATTR_TEXCOORDS });
+	attribIndexOf.insert({ "TEXCOORD_1", VERTEX_ATTR_TEXCOORDS1 });
 	//std::map<int, int> numberOfComponentOf
 	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC2, 2});
 	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC3, 3});
+	numberOfComponentOf.insert({ TINYGLTF_TYPE_VEC4, 4 });
 	//std::map<int, GLenum> attribEnum
 	/*
 	#define GL_POINTS                         0x0000
@@ -217,23 +237,6 @@ Application::Application(int argc, char** argv):
 
 
 	//TINY GLTF
-	/*
-	tinygltf::Model model;
-	tinygltf::TinyGLTF loader;
-	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, input_gltf);
-
-	vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer
-
-	glGenBuffers(buffers.size(), buffers.data())
-	Pour chaque model.buffers
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
-		glBufferStorage(GL_ARRAY_BUFFER, model.buffers[i].data.size(), model.buffers[i].data.data(), 0);
-	}*/
-
-	//glmlv::fs::path gltf_address = m_AssetsRootPath / m_AppName / "gltf" / "scene.gltf";
-	//input_gltf = gltf_address.string;
-
 	std::cout << argv[1] << std::endl;
 
 	const auto ret = loader.LoadASCIIFromFile(&model, &err, &warn, argv[1]);
@@ -249,8 +252,6 @@ Application::Application(int argc, char** argv):
 	if (!ret) {
 		printf("Failed to parse glTF\n");
 	}
-
-	std::cout << "TEST HERE 1" << std::endl;
 	
 
 	std::vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer / c'est les vbos
@@ -262,14 +263,16 @@ Application::Application(int argc, char** argv):
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	std::cout << "TEST HERE 2" << std::endl;
-
 	//std::vector<GLuint> vaos;
 	//std::vector<tinygltf::Primitive> primitives; /// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
 
 	for (int i = 0; i < model.meshes.size(); ++i) {
 		for (int j = 0; j < model.meshes[i].primitives.size(); ++j) {
 			GLuint vaoId;
+
+			std::cout << model.meshes[i].name << std::endl;
+			
+			
 
 			glGenVertexArrays(1, &vaoId);
 			glBindVertexArray(vaoId);
@@ -280,15 +283,16 @@ Application::Application(int argc, char** argv):
 
 
 			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
-				if (it->first != "TANGENT") {
-					tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
-					bufferView = model.bufferViews[accesor.bufferView];
-					bufferIndex = bufferView.buffer;
-					glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex]);
-					glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
-					glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
-					glBindBuffer(GL_ARRAY_BUFFER, 0);
-				}
+				std::cout << it->first << std::endl;
+				
+				tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
+				bufferView = model.bufferViews[accesor.bufferView];
+				bufferIndex = bufferView.buffer;
+				glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex]);
+				glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
+				glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+				
 			}
 
 			vaos.push_back(vaoId);
@@ -296,36 +300,27 @@ Application::Application(int argc, char** argv):
 			primitives.push_back(model.meshes[i].primitives[j]);
 		}
 	}
-	std::cout << "TEST HERE FINAL" << std::endl;
-	/*
-	vector<GLuint> vaos;
-	vector<tinygltf::Primitive> primitives; // Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
-	
-	Pour chaque mesh
-	{
-		Pour chaque primitive
-		{
-			GLuint vaoId;
-			glGenVertexArray(..)
-			glBindVertexArray(..)
-			indexAccessor = models.accessors[model.mesh[i].primitive[j].indices];
-			bufferView = model.bufferViews[indexAccessor.bufferView]
-			bufferIndex = bufferView.buffer
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]) // Ici on bind le buffer OpenGL qui a été rempli dans la premiere boucle
-			pour chaque primitive.attributes:
-			{
-				accesor = models.accessors[model.mesh[i].primitive[j].attributes[key]]; // key est "POSITION", ou "NORMAL", ou autre (voir l'image de spec du format)
-				bufferView = model.bufferViews[ accesor   .bufferView]
-				bufferIndex = bufferView.buffer
-				glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex])
-				glEnableVertexAttribArray(attribIndexOf[key]) // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
-				glVertexAttribPointer(attribIndexOf[key], numberOfComponentOf[accessor.type], accessor.componentType, bufferView.byteStride, (const void*) (bufferView.byteOffset + accessor.byteOffset) // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
-			}
-			vaos.push_back(vaoId);
-			primitives.push_back(primitive)
-		}
+	std::cout << vaos.size() << std::endl;
+
+
+	//get my matrix
+
+	for (int i = 0; i < model.nodes.size(); ++i) {
+		//if (model.nodes[i].mesh != -1) {
+			std::cout << "NODES" << std::endl;
+			std::cout << i << std::endl;
+			std::cout << "mesh" << std::endl;
+			std::cout << model.nodes[i].mesh << std::endl;
+			std::cout << "matrix" << std::endl;
+			std::cout << model.nodes[i].matrix.size() << std::endl;
+			std::cout << model.nodes[i].rotation.size() << std::endl;
+			std::cout << model.nodes[i].translation.size() << std::endl;
+			std::cout << model.nodes[i].scale.size() << std::endl;
+			meshMatrix.insert({ i, model.nodes[i].matrix });
+		//}
 	}
-	*/
+
+
 
     
 
