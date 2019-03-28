@@ -1,0 +1,22 @@
+
+*** These modified files were found in JOE when it aborted on Thu Jan 17 09:01:26 2019
+*** JOE was aborted because the terminal closed
+
+*** Fichier '(Sans nom)'
+syntax
+
+*** Fichier '(Sans nom)'
+root
+
+*** Fichier '(Sans nom)'
+/home/6im3/ejuif/.gitconfig
+
+*** Fichier '/home/6im3/ejuif/.gitconfig'
+# Ceci est le fichier de configuration personnel de Git.
+[user]
+# Veuillez adapter et décommenter les lignes suivantes :
+#	name = JUIF ETIENNE
+#	email = etienne.juif@gmail.co,m
+*** Fichier '* Startup Log *'
+Traitement de '/etc/joe/editorrc'...Traitement de '/etc/joe/ftyperc'...Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc

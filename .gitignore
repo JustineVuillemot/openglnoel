@@ -1,0 +1,7 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+# this gitignore is meant to isolate
+# the apps folder as it's the only folder
+# we need to share for the project
+/*
+!/apps
