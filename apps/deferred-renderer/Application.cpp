@@ -386,4 +386,13 @@ Application::Application(int argc, char** argv):
 
     glBindVertexArray(0);
 
+	//_____________________________________________________PROGRAM  GAMMA CORRECTION___________________________________________________________________________________________
+
+	const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
+
+	m_gammaCorrectionProgram = glmlv::compileProgram({ pathToGCCS });
+	m_gammaCorrectionProgram.use();
+
+	m_uGammaExponent = m_gammaCorrectionProgram.getUniformLocation("uGammaExponent");
+
 }

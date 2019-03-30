@@ -34,7 +34,7 @@ private:
 
     //float sceneSize;
 
-    glmlv::GLProgram programGeometry, programShading;
+    glmlv::GLProgram programGeometry, programShading, m_gammaCorrectionProgram;
 
     GLint modelViewProjMatrix;
     GLint modelViewMatrix;
@@ -49,6 +49,9 @@ private:
     GLint uKd;
     GLint uKa;
     GLint uKs;
+
+	//For compute shader
+	GLint m_uGammaExponent;
 
     //matrix
     glm::mat4 ProjMatrix;
