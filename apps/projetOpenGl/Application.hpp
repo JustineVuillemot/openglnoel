@@ -34,6 +34,7 @@ private:
     const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
 
     glmlv::GLProgram program;
+	glmlv::GLProgram m_gammaCorrectionProgram;
 
     GLuint textureCube;
     GLuint textureSphere;
@@ -50,6 +51,9 @@ private:
     GLint pointLightPosition;
     GLint pointLightIntensity;
     GLint uKd;
+
+	//For compute shader
+	GLint m_uGammaExponent;
 
     //matrix
     glm::mat4 ProjMatrix;

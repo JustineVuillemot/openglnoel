@@ -20,6 +20,8 @@ int Application::run()
     //sampler
     //auto uKdSampler = program.getUniformLocation("uKdSampler");
 
+	program.use();
+
     ProjMatrix = glm::perspective(glm::radians(70.f), 1.0f*m_nWindowWidth / m_nWindowHeight, 0.1f, 100.0f);
     
     //glActiveTexture(GL_TEXTURE0);
@@ -431,5 +433,12 @@ Application::Application(int argc, char** argv):
     pointLightPosition = program.getUniformLocation("uPointLightPosition");
     pointLightIntensity = program.getUniformLocation("uPointLightIntensity");
     uKd = program.getUniformLocation("uKd");*/
+
+	const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
+
+	m_gammaCorrectionProgram = glmlv::compileProgram({ pathToGCCS });
+	m_gammaCorrectionProgram.use();
+
+	m_uGammaExponent = m_gammaCorrectionProgram.getUniformLocation("uGammaExponent");
     
 }
