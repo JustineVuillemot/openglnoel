@@ -78,10 +78,11 @@ private:
     };
 
     GLuint m_GBufferTextures[GBufferTextureCount];
+	GLuint m_BeautyTexture, m_GammaCorrectedBeautyTexture;
 
     const GLenum m_GBufferTextureFormat[GBufferTextureCount] = { GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGBA32F, GL_DEPTH_COMPONENT32F };
 
-    GLuint m_FBO;
+    GLuint m_FBO, m_BeautyFBO, m_GammaCorrectedBeautyFBO;
 
     int textureToPrint;
     int printTexture;
