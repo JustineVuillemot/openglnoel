@@ -12,6 +12,8 @@
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
 
+#include "Trackball.hpp"
+
 
 int Application::run()
 {
@@ -106,7 +108,7 @@ int Application::run()
 				
 				//= glm::make_mat4(meshMatrix[i].data());
 			//MVMatrixCube = glm::translate(meshMat*view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
-			MVMatrixCube = glm::translate(view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
+			MVMatrixCube = glm::translate(view->getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
 			NormalMatrixCube = glm::transpose(glm::inverse(MVMatrixCube));
 
 			//Envoie des matrices
@@ -168,7 +170,7 @@ int Application::run()
         auto guiHasFocus = ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard;
         if (!guiHasFocus) {
             // Put here code to handle user interactions
-            view.update(ellapsedTime);
+            view->update(ellapsedTime);
         }
 
 		m_GLFWHandle.swapBuffers(); // Swap front and back buffers
@@ -183,7 +185,7 @@ Application::Application(int argc, char** argv):
     m_ImGuiIniFilename { m_AppName + ".imgui.ini" },
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
     m_AssetsRootPath { m_AppPath.parent_path() / "assets" },
-    view { glmlv::ViewController(m_GLFWHandle.window(), 10) },
+    view { new Trackball(m_GLFWHandle.window(), 10) },
     pointLightPos {glm::vec3(0.0f, 10.0f, 0.0f)},
     uKdCube {1.0f, 0.0f, 0.0f},
     uKdSphere {0.0f, 1.0f, 1.0f},
@@ -199,7 +201,6 @@ Application::Application(int argc, char** argv):
 
 	// Put here initialization code
 	glEnable(GL_DEPTH_TEST);
-
 
 	//Initialize map
 	const GLuint VERTEX_ATTR_POSITION = 0;
@@ -270,7 +271,7 @@ Application::Application(int argc, char** argv):
 		for (int j = 0; j < model.meshes[i].primitives.size(); ++j) {
 			GLuint vaoId;
 
-			std::cout << model.meshes[i].name << std::endl;
+			//std::cout << model.meshes[i].name << std::endl;
 			
 			
 
@@ -283,7 +284,7 @@ Application::Application(int argc, char** argv):
 
 
 			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
-				std::cout << it->first << std::endl;
+				//std::cout << it->first << std::endl;
 				
 				tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
 				bufferView = model.bufferViews[accesor.bufferView];
@@ -300,12 +301,12 @@ Application::Application(int argc, char** argv):
 			primitives.push_back(model.meshes[i].primitives[j]);
 		}
 	}
-	std::cout << vaos.size() << std::endl;
+	//std::cout << vaos.size() << std::endl;
 
 
 	//get my matrix
 
-	for (int i = 0; i < model.nodes.size(); ++i) {
+	/*for (int i = 0; i < model.nodes.size(); ++i) {
 		//if (model.nodes[i].mesh != -1) {
 			std::cout << "NODES" << std::endl;
 			std::cout << i << std::endl;
@@ -318,7 +319,7 @@ Application::Application(int argc, char** argv):
 			std::cout << model.nodes[i].scale.size() << std::endl;
 			meshMatrix.insert({ i, model.nodes[i].matrix });
 		//}
-	}
+	}*/
 
 
 

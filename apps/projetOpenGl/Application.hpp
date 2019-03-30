@@ -1,7 +1,6 @@
 #pragma once
 
 
-
 #include <glmlv/filesystem.hpp>
 #include <glmlv/GLFWHandle.hpp>
 #include <glmlv/GLProgram.hpp>
@@ -10,7 +9,6 @@
 #include <glmlv/Image2DRGBA.hpp>
 #include <map>
 #include <tiny_gltf.h>
-
 
 
 class Application
@@ -41,7 +39,7 @@ private:
     GLuint textureSphere;
     GLuint sampler;
 
-    glmlv::ViewController view;
+    glmlv::ViewController *view;
 
     GLint modelViewProjMatrix;
     GLint modelViewMatrix;
