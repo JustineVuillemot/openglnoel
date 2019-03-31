@@ -32,7 +32,7 @@ public:
         return m_fSpeed;
     }
 
-    bool update(float elapsedTime);
+    virtual bool update(float elapsedTime);
 
     void setViewMatrix(const glm::mat4& viewMatrix) {
         m_ViewMatrix = viewMatrix;
@@ -47,7 +47,7 @@ public:
         return m_RcpViewMatrix;
     }
 
-private:
+protected:
     GLFWwindow* m_pWindow = nullptr;
     float m_fSpeed = 0.f;
     bool m_LeftButtonPressed = false;
