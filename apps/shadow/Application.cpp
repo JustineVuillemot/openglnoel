@@ -9,12 +9,22 @@ int Application::run()
 {
 	// Put here code to run before rendering loop
     glClearColor(1,0,0,1);
-
+	bool directionalSMDirty = true;
     
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
         const auto seconds = glfwGetTime();
+
+		/*Calcul de la shadow map*/
+		if (directionalSMDirty) {
+			//Calcul
+			std::cout << "Directional Shadow Map is DIRTY" << std::endl;
+
+			directionalSMDirty = false;
+		}
+
+		/*Rendu - Geometry Pass*/
 
         for(int i = 0; i < 5; ++i){
             glBindSampler(i, sampler);
@@ -105,12 +115,14 @@ int Application::run()
 
         //Lecture
         if(printTexture == 1){
+			/*Rendu - GBuffer*/
             glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FBO);
             glReadBuffer(GL_COLOR_ATTACHMENT0 + textureToPrint);
             glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight,  GL_COLOR_BUFFER_BIT, GL_LINEAR);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }   
         else{
+			/*Rendu - Shading Pass*/
 
             programShading.use();
             glBindVertexArray(vaoQuad);
@@ -150,10 +162,10 @@ int Application::run()
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             if (ImGui::CollapsingHeader("Directional Light"))
             {
-                ImGui::DragFloat("Dir angle Phi", &anglePhi);
-                ImGui::DragFloat("Dir angle Theta", &angleTheta);
-                ImGui::DragFloat("DirLightIntensity", &intensityDir);
-                ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
+				directionalSMDirty |= ImGui::DragFloat("Dir angle Phi", &anglePhi);
+				directionalSMDirty |= ImGui::DragFloat("Dir angle Theta", &angleTheta);
+				directionalSMDirty |= ImGui::DragFloat("DirLightIntensity", &intensityDir);
+				directionalSMDirty |= ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
             }
             ImGui::RadioButton("Result", &printTexture, 0);  ImGui::SameLine();
             ImGui::RadioButton("One texture", &printTexture, 1);
@@ -194,19 +206,19 @@ Application::Application(int argc, char** argv):
     view { glmlv::ViewController(m_GLFWHandle.window(), 10) },
     anglePhi(10),
     angleTheta(10),
-    intensityDir(10),
-    colorDir {50,50,50},
+    intensityDir(1),
+    colorDir {0.828,0.438,0.130},
     textureToPrint {2},
-    printTexture {1}
+    printTexture {0}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
     // Put here initialization code
     //_____________________________________________________PROGRAM   FRAGMENT SHADER___________________________________________________________________________________________
-    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "geometryPass.vs.glsl";
-    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "geometryPass.fs.glsl";
+    const auto pathToGPVS = m_ShadersRootPath / m_AppName / "geometryPass.vs.glsl";
+    const auto pathToGPFS = m_ShadersRootPath / m_AppName / "geometryPass.fs.glsl";
 
-    programGeometry = glmlv::compileProgram({pathToSMVS, pathToSMFS});
+    programGeometry = glmlv::compileProgram({ pathToGPVS, pathToGPFS });
     programGeometry.use();
 
 
@@ -385,5 +397,49 @@ Application::Application(int argc, char** argv):
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindVertexArray(0);
+
+	//_____________________________________________________TEXTURE & FBO SHADOW MAP___________________________________________________________________________________________
+	glGenTextures(1, &m_directionalSMTexture);
+
+	glBindTexture(GL_TEXTURE_2D, m_directionalSMTexture);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, m_nWindowWidth, m_nWindowHeight);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	//FBO
+	glGenFramebuffers(1, &m_directionalSMFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_directionalSMFBO);
+
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_directionalSMTexture, 0);
+
+	GLenum smDrawBuffer = GL_DEPTH_ATTACHMENT;
+	glDrawBuffers(1, &smDrawBuffer);
+
+	GLenum smStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+
+	if (smStatus != GL_FRAMEBUFFER_COMPLETE) {
+		std::cerr << "FB error, status: " << smStatus << std::endl;
+		throw std::runtime_error("FBO error");
+	}
+
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+	//Sampler
+	glGenSamplers(1, &m_directionalSMSampler);
+	glSamplerParameteri(m_directionalSMSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glSamplerParameteri(m_directionalSMSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glSamplerParameteri(m_directionalSMSampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glSamplerParameteri(m_directionalSMSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+
+	//_____________________________________________________PROGRAM SHADOW MAP___________________________________________________________________________________________
+	
+	const auto pathToSMVS = m_ShadersRootPath / m_AppName / "directionalSM.vs.glsl";
+	const auto pathToSMFS = m_ShadersRootPath / m_AppName / "directionalSM.fs.glsl";
+
+	m_directionalSMProgram = glmlv::compileProgram({ pathToSMVS, pathToSMFS });
+	m_directionalSMProgram.use();
+
+	//LIGHT
+	m_uDirLightViewProjMatrix = glGetUniformLocation(m_directionalSMProgram.glId(), "uDirLightViewProjMatrix");
 
 }

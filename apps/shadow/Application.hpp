@@ -90,4 +90,14 @@ private:
     GLuint positionLocation, normalLocation, ambientLocation, diffuseLocation, glossyLocation;
 
     GLuint vboQuad, vaoQuad, iboQuad;
+
+	//SHADING MAP
+	GLuint m_directionalSMTexture;
+	GLuint m_directionalSMFBO;
+	GLuint m_directionalSMSampler;
+	int32_t m_nDirectionalSMResolution = 512;
+
+	//SHADING MAP PROGRAM
+	glmlv::GLProgram m_directionalSMProgram;
+	GLint m_uDirLightViewProjMatrix;
 };
