@@ -11,106 +11,135 @@
 #include <glmlv/simple_geometry.hpp>
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
-
 #include "Trackball.hpp"
+
+void Application::PrintParameterMap(const tinygltf::ParameterMap &pmap) {
+
+	for (auto &kv : pmap) {
+		tinygltf::Parameter param = kv.second;
+
+		if (kv.first == "emissiveFactor") {
+			if (!param.number_array.empty()) {
+				glm::vec3 emisFactor(param.number_array[0], param.number_array[1], param.number_array[2]);
+				glUniform3fv(emissionColorFactor, 1, glm::value_ptr(emisFactor));
+			}
+		}
+		if (kv.first == "emissiveTexture") {
+			auto p(param.json_double_value.begin());
+			auto pEnd(param.json_double_value.end());
+			for (; p != pEnd; p++) {
+				if (p->first == "index") {
+					emisColorTextureID = p->second;
+				}
+				if (p->first == "texCoord") {
+					emisColorTexCoord = p->second;
+				}
+			}
+		}
+		if (kv.first == "baseColorFactor") {
+			//ss << kv.first << " : " << PrintParameterValue(param) << std::endl;
+			if (!param.number_array.empty()) {
+				glm::vec4 baseFactor(param.number_array[0], param.number_array[1], param.number_array[2], param.number_array[3]);
+				glUniform4fv(baseColorFactor, 1, glm::value_ptr(baseFactor));
+			}
+		}
+		if (kv.first == "baseColorTexture") {
+			auto p(param.json_double_value.begin());
+			auto pEnd(param.json_double_value.end());
+			for (; p != pEnd; p++) {
+				if (p->first == "index") {
+					baseColorTextureID = p->second;
+				}
+				if (p->first == "texCoord") {
+					baseColorTexCoord = p->second;
+				}
+			}
+		}
+	}
+}
+
+glm::dmat4 matrixToMat4(std::vector<double> tab) {
+	glm::dmat4 mat{ tab[0], tab[1], tab[2], tab[3],
+					tab[4], tab[5], tab[6], tab[7],
+					tab[8], tab[9], tab[10], tab[11],
+					tab[12], tab[13], tab[14], tab[15] };
+	return mat;
+}
+
+glm::dmat4 quaternionToRotation(std::vector<double> tab) {
+	double X = tab[0];
+	double Y = tab[1];
+	double Z = tab[2];
+	double W = tab[3];
+
+	double angle = 2 * acos(W);
+	double x = X / sqrt(1 - W * W);
+	double y = Y / sqrt(1 - W * W);
+	double z = Z / sqrt(1 - W * W);
+
+	glm::dmat4 rot = glm::rotate(glm::dmat4(1.0f), angle, glm::dvec3(x, y, z));
+
+	return rot;
+}
+
+glm::dmat4 scaleToMat4(std::vector<double> tab) {
+	return glm::scale(glm::dmat4(1.0f), glm::dvec3(tab[0], tab[1], tab[2]));
+}
+
+
+glm::dmat4 translationToMat4(std::vector<double> tab) {
+	return glm::translate(glm::dmat4(1.0f), glm::dvec3(tab[0], tab[1], tab[2]));
+}
+
+void printMatrix(glm::dmat4 matrix) {
+	for (int i = 0; i < 4; ++i) {
+		std::cout << matrix[i][0] << " " << matrix[i][1] << " " << matrix[i][2] << " " << matrix[i][3] << std::endl;
+	}
+}
+
+std::string dirnameOf(const std::string& fname)
+{
+	size_t pos = fname.find_last_of("\\/");
+	return (std::string::npos == pos)
+		? ""
+		: fname.substr(0, pos+1);
+}
 
 
 int Application::run()
 {
-    //sampler
-    //auto uKdSampler = program.getUniformLocation("uKdSampler");
-
-	program.use();
+    program.use();
 
     ProjMatrix = glm::perspective(glm::radians(70.f), 1.0f*m_nWindowWidth / m_nWindowHeight, 0.1f, 100.0f);
-    
-    //glActiveTexture(GL_TEXTURE0);
-    //glUniform1i(uKdSampler, 0); // Set the uniform to 0 because we use texture unit 0
-    //glBindSampler(0, sampler);
 
+	 //Change unit texture
+	glUniform1i(baseColorLocation, 0); // Set the uniform to 0 because we use texture unit 0
+	glUniform1i(emissionColorLocation, 1); // Set the uniform to 1 because we use texture unit 1
 
     //glClearColor(1,0,0,1);
+	
 
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
         const auto seconds = glfwGetTime();
 
-        
-        //MVMatrixSphere = glm::translate(view.getViewMatrix(), glm::vec3(2.0f, 0.0f, -5.0f));
-        
-        //NormalMatrixSphere = glm::transpose(glm::inverse(MVMatrixSphere));
-
         // Put here rendering code
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         const auto fbSize = m_GLFWHandle.framebufferSize();
 
-        //TEXTURES
-        //glBindTexture(GL_TEXTURE_2D, textureCube);
 
-        //Lightning - General
-        /*glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
-        glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
-        glUniform3fv( pointLightPosition, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(pointLightPos.x, pointLightPos.y, pointLightPos.z, 1)));
-        glUniform3fv( pointLightIntensity, 1, glm::value_ptr( colorPoint*intensityPoint ));
-
-        //Envoie des matrices
-        glUniformMatrix4fv( modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr( ProjMatrix * MVMatrixCube ));
-        glUniformMatrix4fv( modelViewMatrix, 1, GL_FALSE, glm::value_ptr( MVMatrixCube ));
-        glUniformMatrix4fv( normalMatrix, 1, GL_FALSE, glm::value_ptr( NormalMatrixCube ));
-
-        //Lightning - Cube
-        glUniform3f(uKd, uKdCube[0], uKdCube[1], uKdCube[2]);
-
-        glBindVertexArray(vao[0]);
-        glDrawElements(GL_TRIANGLES, cube.indexBuffer.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        //Envoie des matrices
-        glUniformMatrix4fv( modelViewProjMatrix, 1, GL_FALSE, glm::value_ptr( ProjMatrix * MVMatrixSphere ));
-        glUniformMatrix4fv( modelViewMatrix, 1, GL_FALSE, glm::value_ptr( MVMatrixSphere ));
-        glUniformMatrix4fv( normalMatrix, 1, GL_FALSE, glm::value_ptr( NormalMatrixSphere ));
-
-        //TEXTURES
-        glBindTexture(GL_TEXTURE_2D, textureSphere);
-
-        //Lightning - Sphere
-        glUniform3f(uKd, uKdSphere[0], uKdSphere[1], uKdSphere[2]);
+		//Lightning - General
+		glUniform3fv(directionalLightDir, 1, glm::value_ptr(view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+		glUniform3fv(directionalLightIntensity, 1, glm::value_ptr(colorDir*intensityDir));
 
 
-        glBindVertexArray(vao[1]);
-        glDrawElements(GL_TRIANGLES, sphere.indexBuffer.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);*/
-
-		/*
-		Ensuite pour le rendu on fait une boucle sur tous les VAOs, on bind et on dessine avec glDrawElements, 
-
-		en plus passant le mode de la primitive associé, le nombre d'index (stocké dans le "count" de l'accessor 
-		"indices" de la primitive, le type des index (stocké dans l'accessor aussi), et le byteOffset de l'accessor 
-		pour l'argument "indices" de la fonction (casté en (const void*)). Toutes ces infos sont accessible à partir 
-		du tableau "primitives" qu'on a remplit en meme temps que le tableau "vaos"
-		*/
-
-		//std::cout << "test" << std::endl;
-
-		
-
-
+		//DRAW
 		for (int i = 0; i < vaos.size(); ++i) {
-			//std::cout << meshMatrix[i].size() << std::endl;
-			//std::cout << meshMatrix[i][15] << std::endl;
-			/*glm::mat4 meshMat{ meshMatrix[i][0], meshMatrix[i][1] , meshMatrix[i][2], meshMatrix[i][3]
-								, meshMatrix[i][4], meshMatrix[i][5], meshMatrix[i][6], meshMatrix[i][7]
-								, meshMatrix[i][8], meshMatrix[i][9], meshMatrix[i][10], meshMatrix[i][11]
-								, meshMatrix[i][12], meshMatrix[i][13], meshMatrix[i][14], meshMatrix[i][15] };*/
-				
-				
-				//= glm::make_mat4(meshMatrix[i].data());
-			//MVMatrixCube = glm::translate(meshMat*view.getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
-			MVMatrixCube = glm::translate(view->getViewMatrix(), glm::vec3(0.0f, 0.0f, -5.0f));
+
+			//printMatrix(matrix[i]);
+			MVMatrixCube = glm::translate((glm::dmat4)view.getViewMatrix()*matrix[i], glm::dvec3(0.0f, 0.0f, -5.0f));
 			NormalMatrixCube = glm::transpose(glm::inverse(MVMatrixCube));
 
 			//Envoie des matrices
@@ -118,13 +147,49 @@ int Application::run()
 			glUniformMatrix4fv(modelViewMatrix, 1, GL_FALSE, glm::value_ptr(MVMatrixCube));
 			glUniformMatrix4fv(normalMatrix, 1, GL_FALSE, glm::value_ptr(NormalMatrixCube));
 
+			//BASE COLOR
+
+			//get elements for texture for emis and base colors
+			PrintParameterMap(model.materials[primitives[i].material].additionalValues);
+			PrintParameterMap(model.materials[primitives[i].material].values);
+
+			glUniform1i(baseCoord, baseColorTexCoord);
+			glUniform1i(emissionCoord, emisColorTexCoord);
+
+
+			//BaseColor
+			if (baseColorTextureID != -1) {
+				//sampler
+				glActiveTexture(GL_TEXTURE0);
+				glBindSampler(0, samplers[model.textures[baseColorTextureID].sampler]);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, textures[baseColorTextureID]);
+			}
+
+			//EmisColor
+			if (emisColorTextureID != -1) {
+				//sampler
+				glActiveTexture(GL_TEXTURE1);
+				glBindSampler(1, samplers[model.textures[emisColorTextureID].sampler]);
+
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, textures[emisColorTextureID]);
+			}
 
 			glBindVertexArray(vaos[i]);
 			
 			tinygltf::Accessor indexAccessor = model.accessors[primitives[i].indices];
 			glDrawElements(primitives[i].mode, indexAccessor.count, indexAccessor.componentType, (const void*) indexAccessor.byteOffset);
 			glBindVertexArray(0);
+
+
+			//for next
+			baseColorTextureID = -1;
+			baseColorTexCoord = -1;
+			emisColorTextureID = -1;
+			emisColorTexCoord = -1;
 		}
+	
 		//std::cout << "test2" << std::endl;
 
 		glViewport(0, 0, fbSize.x, fbSize.y);
@@ -145,19 +210,6 @@ int Application::run()
                 ImGui::DragFloat("Dir angle Theta", &angleTheta);
                 ImGui::DragFloat("DirLightIntensity", &intensityDir);
                 ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
-            }
-
-            if (ImGui::CollapsingHeader("Point Light"))
-            {
-                ImGui::DragFloat3("Position", glm::value_ptr(pointLightPos));
-                ImGui::DragFloat("PointLightIntensity", &intensityPoint);
-                ImGui::ColorEdit3("PointLightColor", glm::value_ptr(colorPoint));
-            }
-
-            if (ImGui::CollapsingHeader("Materials"))
-            {
-                ImGui::ColorEdit3("Cube Kd", uKdCube);
-                ImGui::ColorEdit3("Sphere Kd", uKdSphere);
             }
 
             ImGui::End();
@@ -189,12 +241,10 @@ Application::Application(int argc, char** argv):
     m_AssetsRootPath { m_AppPath.parent_path() / "assets" },
     view { new Trackball(m_GLFWHandle.window(), 10) },
     pointLightPos {glm::vec3(0.0f, 10.0f, 0.0f)},
-    uKdCube {1.0f, 0.0f, 0.0f},
-    uKdSphere {0.0f, 1.0f, 1.0f},
     anglePhi(10),
     angleTheta(10),
-    intensityDir(10),
-    colorDir {50,50,50},
+    intensityDir(1),
+    colorDir {1,1,1},
     intensityPoint(20),
     colorPoint {50,50,50}
 {
@@ -214,29 +264,17 @@ Application::Application(int argc, char** argv):
 
 	//std::map<int, std::string> attribIndexOf
 	attribIndexOf.insert({"POSITION", VERTEX_ATTR_POSITION});
-	attribIndexOf.insert({"NORMAL", VERTEX_ATTR_NORMAL});
-	attribIndexOf.insert({ "TANGENT", VERTEX_ATTR_TANGENT });
+	attribIndexOf.insert({ "NORMAL", VERTEX_ATTR_NORMAL });
 	attribIndexOf.insert({ "TEXCOORD_0", VERTEX_ATTR_TEXCOORDS });
 	attribIndexOf.insert({ "TEXCOORD_1", VERTEX_ATTR_TEXCOORDS1 });
-	//std::map<int, int> numberOfComponentOf
+	attribIndexOf.insert({ "TANGENT", VERTEX_ATTR_TANGENT });
+
 	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC2, 2});
 	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC3, 3});
 	numberOfComponentOf.insert({ TINYGLTF_TYPE_VEC4, 4 });
-	//std::map<int, GLenum> attribEnum
-	/*
-	#define GL_POINTS                         0x0000
-	#define GL_LINES                          0x0001
-	#define GL_LINE_LOOP                      0x0002
-	#define GL_LINE_STRIP                     0x0003
-	//#define GL_TRIANGLES                      0x0004
-	#define GL_TRIANGLE_STRIP                 0x0005
-	#define GL_TRIANGLE_FAN                   0x0006
-	
-	*/
+
 	attribEnum.insert({ 4, GL_TRIANGLES });
 
-
-	
 
 
 	//TINY GLTF
@@ -266,23 +304,20 @@ Application::Application(int argc, char** argv):
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	//std::vector<GLuint> vaos;
-	//std::vector<tinygltf::Primitive> primitives; /// Pour chaque VAO on va aussi stocker les données de la primitive associé car on doit l'utiliser lors du rendu
+
 
 	for (int i = 0; i < model.meshes.size(); ++i) {
 		for (int j = 0; j < model.meshes[i].primitives.size(); ++j) {
 			GLuint vaoId;
 
 			//std::cout << model.meshes[i].name << std::endl;
-			
-			
 
 			glGenVertexArrays(1, &vaoId);
 			glBindVertexArray(vaoId);
 			tinygltf::Accessor indexAccessor = model.accessors[model.meshes[i].primitives[j].indices];
 			tinygltf::BufferView bufferView = model.bufferViews[indexAccessor.bufferView];
 			int bufferIndex = bufferView.buffer;
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]); // Ici on bind le buffer OpenGL qui a été rempli dans la premiere boucle
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[bufferIndex]); // Ici on bind le buffer OpenGL qui a Ã©tÃ© rempli dans la premiere boucle
 
 
 			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
@@ -292,7 +327,7 @@ Application::Application(int argc, char** argv):
 				bufferView = model.bufferViews[accesor.bufferView];
 				bufferIndex = bufferView.buffer;
 				glBindBuffer(GL_ARRAY_BUFFER, buffers[bufferIndex]);
-				glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
+				glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prÃ©rempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
 				glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				
@@ -305,140 +340,137 @@ Application::Application(int argc, char** argv):
 	}
 	//std::cout << vaos.size() << std::endl;
 
-
+	for (int i = 0; i < primitives.size(); ++i) {
+		matrix.push_back(glm::mat4(1.0f));
+	}
+	/*for (int i = 0; i < matrix.size(); ++i) {
+		printMatrix(matrix[i]);
+	}
 	//get my matrix
+  */
+	
+	/*for (int i = 0; i < model.nodes.size(); ++i) 
+	{
+		std::vector<int> indexMesh;
+		getMeshs(model.nodes[i], indexMesh); //for one node, check all of the tree to get all of the index of the meshes which are "child" of the node
+		glm::dmat4 nodeMatrix = glm::dmat4(1.0f);
 
-	/*for (int i = 0; i < model.nodes.size(); ++i) {
-		//if (model.nodes[i].mesh != -1) {
-			std::cout << "NODES" << std::endl;
-			std::cout << i << std::endl;
-			std::cout << "mesh" << std::endl;
-			std::cout << model.nodes[i].mesh << std::endl;
-			std::cout << "matrix" << std::endl;
-			std::cout << model.nodes[i].matrix.size() << std::endl;
-			std::cout << model.nodes[i].rotation.size() << std::endl;
-			std::cout << model.nodes[i].translation.size() << std::endl;
-			std::cout << model.nodes[i].scale.size() << std::endl;
-			meshMatrix.insert({ i, model.nodes[i].matrix });
-		//}
-	}*/
-
-
-
-    
-
-    //Construction cube
-    
-    //glGenBuffers(2, vbo);
-    //glGenBuffers(2, ibo);
-    //glGenVertexArrays(2, vao);
-
-    /*//______CUBE_____________________________________
-    //VBO cube
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferStorage(GL_ARRAY_BUFFER, sizeof(glmlv::Vertex3f3f2f)*cube.vertexBuffer.size(), cube.vertexBuffer.data(), 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    //IBO cube
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[0]);
-    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, cube.indexBuffer.size() * sizeof(uint32_t), cube.indexBuffer.data(), 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    //VAO cube
-    glBindVertexArray(vao[0]);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[0]);
-
-    glEnableVertexAttribArray(VERTEX_ATTR_POSITION);
-    glEnableVertexAttribArray(VERTEX_ATTR_NORMAL);
-    glEnableVertexAttribArray(VERTEX_ATTR_TEXCOORDS);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glVertexAttribPointer(VERTEX_ATTR_POSITION, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, position));
-    glVertexAttribPointer(VERTEX_ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, normal));
-    glVertexAttribPointer(VERTEX_ATTR_TEXCOORDS, 2, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, texCoords));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(0);
-
-    
-    //______SPHERE_____________________________________
-    //VBO sphere
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glBufferStorage(GL_ARRAY_BUFFER, sizeof(glmlv::Vertex3f3f2f)*sphere.vertexBuffer.size(), sphere.vertexBuffer.data(), 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    //IBO sphere
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[1]);
-    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, sphere.indexBuffer.size() * sizeof(uint32_t), sphere.indexBuffer.data(), 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    //VAO sphere
-    glBindVertexArray(vao[1]);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[1]);
-
-    glEnableVertexAttribArray(VERTEX_ATTR_POSITION);
-    glEnableVertexAttribArray(VERTEX_ATTR_NORMAL);
-    glEnableVertexAttribArray(VERTEX_ATTR_TEXCOORDS);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glVertexAttribPointer(VERTEX_ATTR_POSITION, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, position));
-    glVertexAttribPointer(VERTEX_ATTR_NORMAL, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, normal));
-    glVertexAttribPointer(VERTEX_ATTR_TEXCOORDS, 2, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, texCoords));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(0);*/
+		if (model.nodes[i].matrix.size() == 16) {
+			nodeMatrix = matrixToMat4(model.nodes[i].matrix);
+		}
+		else { //T*R*S
+			if (model.nodes[i].scale.size() == 3) {
+				nodeMatrix = scaleToMat4(model.nodes[i].scale)*nodeMatrix;
+			}
+			if (model.nodes[i].rotation.size() == 4) {
+				nodeMatrix = quaternionToRotation(model.nodes[i].rotation)*nodeMatrix;
+			}
+			if (model.nodes[i].translation.size() == 3) {
+				nodeMatrix = translationToMat4(model.nodes[i].translation)*nodeMatrix;
+			}
+		}
+		
+		for (int j = 0; j < indexMesh.size(); ++j) {
+			matrix[indexMesh[j]] = matrix[indexMesh[j]]*nodeMatrix; 
+			//The elder parent will be the first to be computed so that will do ParentOld*ParentYoung*Mesh (for example)
+			//If I change the order => nothing change
+		}	
+	}
+	std::cout << "all my matrix____________________________________________" << std::endl;
+	for (int i = 0; i < matrix.size(); ++i) {
+		printMatrix(matrix[i]);
+		std::cout << std::endl;
+	}
+	*/
 
     //PROGRAM
-    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "forward.vs.glsl";
-    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "forward.fs.glsl";
+    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "projet.vs.glsl";
+    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "projet.fs.glsl";
 
     program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
     program.use();
 
-    /*//TEXTURES
-    glmlv::Image2DRGBA imageCube = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "cube.jpg");
-    glmlv::Image2DRGBA imageSphere = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "sphere.jpg");
-    //CUBE
-    glActiveTexture(GL_TEXTURE0);
+    //TEXTURES
 
-    glGenTextures(1, &textureCube);
-    
-    glBindTexture(GL_TEXTURE_2D, textureCube);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, imageCube.width(), imageCube.height());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageCube.width(), imageCube.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageCube.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    //SPHERE
-    glGenTextures(1, &textureSphere);
+	for (int i = 0; i < model.images.size(); ++i) {
+		std::cout << dirnameOf(argv[1]) + model.images[i].uri << std::endl;
+		images.push_back(glmlv::readImage(dirnameOf(argv[1]) + model.images[i].uri));
 
-    glBindTexture(GL_TEXTURE_2D, textureSphere);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, imageSphere.width(), imageSphere.height());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageSphere.width(), imageSphere.height(), GL_RGBA, GL_UNSIGNED_BYTE, imageSphere.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
+		GLuint texture;
 
+		glActiveTexture(GL_TEXTURE0);
+		glGenTextures(1, &texture);
+
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, images[i].width(), images[i].height());
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, images[i].width(), images[i].height(), GL_RGBA, GL_UNSIGNED_BYTE, images[i].data());
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		textures.push_back(texture);
+	}
+
+	
     //SAMPLERS
-    glGenSamplers(1, &sampler);
-    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	*/
+	for (int i = 0; i < model.samplers.size(); ++i) {
+		GLuint sampler;
+
+		glGenSamplers(1, &sampler);
+		glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, model.samplers[i].magFilter);
+		glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, model.samplers[i].minFilter);
+		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, model.samplers[i].wrapS);
+		glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, model.samplers[i].wrapT);
+
+		samplers.push_back(sampler);
+	}
+
     //getUniform
     //MATRIX
     modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
     modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
     normalMatrix = program.getUniformLocation("uNormalMatrix");
 
-    //LIGHT
-    /*directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
-    directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity");
-    pointLightPosition = program.getUniformLocation("uPointLightPosition");
-    pointLightIntensity = program.getUniformLocation("uPointLightIntensity");
-    uKd = program.getUniformLocation("uKd");*/
+    
+  //LIGHT
+    directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
+    directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity"); 
 
-	const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
+	//samplerLocation
+	baseColorLocation = program.getUniformLocation("uBaseColor");
+	emissionColorLocation = program.getUniformLocation("uEmissionColor");
+
+	//choose texCoords
+	baseCoord = program.getUniformLocation("uBaseCoord");
+	emissionCoord = program.getUniformLocation("uEmissionCoord");
+
+	//factor
+	baseColorFactor = program.getUniformLocation("uBaseFactor");;
+	emissionColorFactor = program.getUniformLocation("uEmissionFactor");
+  
+  const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
 
 	m_gammaCorrectionProgram = glmlv::compileProgram({ pathToGCCS });
 	m_gammaCorrectionProgram.use();
 
 	m_uGammaExponent = m_gammaCorrectionProgram.getUniformLocation("uGammaExponent");
-    
+}
+
+
+
+
+
+
+void Application::getMeshs(tinygltf::Node node, std::vector<int> &meshIdx) {
+	if (node.mesh != -1) 
+	{
+		//std::cout << "here" << std::endl;
+		meshIdx.push_back(node.mesh);
+	}
+
+	if(node.children.size() != 0) 
+	{
+		for (int nodeIdx : node.children) {
+			getMeshs(model.nodes[nodeIdx], meshIdx);
+		}
+	}
+
 }
