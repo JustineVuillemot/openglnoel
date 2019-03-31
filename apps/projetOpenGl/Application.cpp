@@ -117,6 +117,7 @@ int Application::run()
 {
     program.use();
 
+	float gamma = 2.2;
     ProjMatrix = glm::perspective(glm::radians(70.f), 1.0f*m_nWindowWidth / m_nWindowHeight, 0.1f, 100.0f);
 
 	//Change unit texture
@@ -230,9 +231,16 @@ int Application::run()
 
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-		const auto viewportSize = m_GLFWHandle.framebufferSize();
-		glViewport(0, 0, viewportSize.x, viewportSize.y);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//______________________________________________ GAMMA CORRECTION PROGRAM __________________________________________________//
+
+		m_gammaCorrectionProgram.use();
+
+		glUniform1f(m_uGammaExponent, 1.f / gamma);
+		glBindImageTexture(0, m_BeautyTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+		glBindImageTexture(1, m_GammaCorrectTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+		glDispatchCompute(m_nWindowWidth, m_nWindowHeight, 1);
+
 
 		if (printTexture == 1) {
 			/*___________________ DISPLAY GBUFFER TEXTURES _____________________*/
@@ -243,8 +251,8 @@ int Application::run()
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		}
 		else if (printTexture == 2) {
-			/*___________________ DISPLAY BEAUTY _____________________*/
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, m_BeautyFBO);
+			/*___________________ GAMMA CORRECTION _____________________*/
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, m_GammaCorrectFBO);
 			glReadBuffer(GL_COLOR_ATTACHMENT0);
 			glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight,
 				0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
@@ -253,10 +261,13 @@ int Application::run()
 
 		}
 		else {
-			/*___________________ DISPLAY BASIC SHADING _____________________*/
-			glBindVertexArray(vaoQuad);
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);	
-			glBindVertexArray(0);
+			/*___________________ DISPLAY BEAUTY _____________________*/
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, m_BeautyFBO);
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight,
+				0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		}
 
 		for (int i = 0; i < 4; ++i) {
@@ -278,9 +289,10 @@ int Application::run()
                 ImGui::DragFloat("DirLightIntensity", &intensityDir);
                 ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
             }
-			ImGui::RadioButton("Result", &printTexture, 0);  ImGui::SameLine();
+			ImGui::InputFloat("gamma", &gamma);
+			ImGui::RadioButton("Result - Beauty", &printTexture, 0);  ImGui::SameLine();
 			ImGui::RadioButton("One texture", &printTexture, 1);
-			ImGui::RadioButton("Beauty", &printTexture, 2);
+			ImGui::RadioButton("Gamma Correct", &printTexture, 2);
 			if (ImGui::CollapsingHeader("FrameBuffer image"))
 			{
 				ImGui::RadioButton("GPosition", &textureToPrint, 0);  ImGui::SameLine();
@@ -322,7 +334,7 @@ Application::Application(int argc, char** argv):
     intensityDir(2),
     colorDir {0.7,0.7,0.7},
 	textureToPrint{ 3 },
-	printTexture{ 2 }
+	printTexture{ 0 }
 {
 	ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
