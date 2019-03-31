@@ -10,16 +10,55 @@ int Application::run()
 	// Put here code to run before rendering loop
     glClearColor(1,0,0,1);
 	bool directionalSMDirty = true;
+	float shadowMapBias = 0.01f;
     
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
-        const auto seconds = glfwGetTime();
+		const auto seconds = glfwGetTime();
+
+		/*PROJ & VIEW MATRIX FOR DIRECTIONAL SHADOW MAPPING*/
+		static const auto computeDirectionVectorUp = [](float phiRadians, float thetaRadians)
+		{
+			const auto cosPhi = glm::cos(phiRadians);
+			const auto sinPhi = glm::sin(phiRadians);
+			const auto cosTheta = glm::cos(thetaRadians);
+			return -glm::normalize(glm::vec3(sinPhi * cosTheta, -glm::sin(thetaRadians), cosPhi * cosTheta));
+		};
+
+		const auto sceneCenter = 0.5f * (m_BBoxMin + m_BBoxMax);
+		const float sceneRadius = m_SceneSizeLenght * 0.5f;
+
+		const auto dirLightUpVector = computeDirectionVectorUp(glm::radians(anglePhi), glm::radians(angleTheta));
+		const auto dirLightViewMatrix = glm::lookAt(sceneCenter + directionalLightDir * sceneRadius, sceneCenter, dirLightUpVector);
+		const auto dirLightProjMatrix = glm::ortho(-sceneRadius, sceneRadius, -sceneRadius, sceneRadius, 0.01f * sceneRadius, 2.f * sceneRadius);
+
 
 		/*Calcul de la shadow map*/
 		if (directionalSMDirty) {
-			//Calcul
-			std::cout << "Directional Shadow Map is DIRTY" << std::endl;
+			m_directionalSMProgram.use();
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_directionalSMFBO);
+			glViewport(0, 0, m_nDirectionalSMResolution, m_nDirectionalSMResolution);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			glUniformMatrix4fv(m_uDirLightViewProjMatrix, 1, GL_FALSE, glm::value_ptr(dirLightProjMatrix * dirLightViewMatrix));
+
+			glBindVertexArray(vao);
+
+			auto indexOffset = 0;
+			int indexShape = 0;
+
+			for (const auto indexCount : data.indexCountPerShape)
+			{
+				glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*)(indexOffset * sizeof(GLuint)));
+				indexOffset += indexCount;
+				++indexShape;
+			}
+
+			glBindVertexArray(0);
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
 			directionalSMDirty = false;
 		}
@@ -32,6 +71,8 @@ int Application::run()
 
         // Put here rendering code
         programGeometry.use();
+		glViewport(0, 0, m_nWindowWidth, m_nWindowHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //Change unit texture
         glUniform1i(KaLocation, 0); // Set the uniform to 0 because we use texture unit 0
@@ -96,6 +137,10 @@ int Application::run()
             indexOffset += indexCount;
             ++indexShape;
 
+			for (int i = 0; i < 5; ++i) {
+				glBindSampler(0, sampler);
+			}
+
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, 0); // débind sur l'unité GL_TEXTURE0
             glActiveTexture(GL_TEXTURE1);
@@ -120,22 +165,45 @@ int Application::run()
             glReadBuffer(GL_COLOR_ATTACHMENT0 + textureToPrint);
             glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight,  GL_COLOR_BUFFER_BIT, GL_LINEAR);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        }   
+		}
+		else if (printTexture == 2) { //Light Depth Map
+			m_displayDepthProgram.use();
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, m_directionalSMTexture);
+
+			glUniform1i(m_uGDepthSamplerLocation, 0);
+
+			glBindVertexArray(vaoQuad);
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+		}
         else{
 			/*Rendu - Shading Pass*/
 
             programShading.use();
-            glBindVertexArray(vaoQuad);
             
             //Lightning - General
             glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
             glUniform3fv( directionalLightIntensity, 1, glm::value_ptr( colorDir*intensityDir ));
+
+			//Shadow Mapping - Uniform
+			const auto rcpViewMatrix = view.getRcpViewMatrix(); // Inverse de la view matrix de la caméra
+
+			glUniformMatrix4fv(m_uDirLightViewProjMatrix_shadingPass, 1, GL_FALSE, glm::value_ptr(dirLightProjMatrix * dirLightViewMatrix * rcpViewMatrix));
+			glUniform1fv(m_uDirLightShadowMapBias, 1, &shadowMapBias);
             
 
             for(int i = 0; i < 5; ++i){
                 glActiveTexture(GL_TEXTURE0 + i);
                 glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
             }
+			
+			//Shadow Map Texture
+			glActiveTexture(GL_TEXTURE0 + 5);
+			glBindTexture(GL_TEXTURE_2D, m_directionalSMTexture);
+			glBindSampler(5, m_directionalSMSampler);
+			glUniform1i(m_uDirLightShadowMap, 5);
 
             glUniform1i(positionLocation, 0); // Set the uniform to 0 because we use texture unit 0
             glUniform1i(normalLocation, 1); // Set the uniform to 1 because we use texture unit 1
@@ -143,7 +211,13 @@ int Application::run()
             glUniform1i(diffuseLocation, 3);
             glUniform1i(glossyLocation, 4);
 
+			//Draw
+			glBindVertexArray(vaoQuad);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+
+			glActiveTexture(GL_TEXTURE0 + 5);
+			glBindTexture(GL_TEXTURE_2D, 0);
 
             for(int i = 0; i < 5; ++i){
                 glActiveTexture(GL_TEXTURE0 + i);
@@ -167,8 +241,10 @@ int Application::run()
 				directionalSMDirty |= ImGui::DragFloat("DirLightIntensity", &intensityDir);
 				directionalSMDirty |= ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
             }
+			ImGui::DragFloat("Shadow Map Bias", &shadowMapBias);
             ImGui::RadioButton("Result", &printTexture, 0);  ImGui::SameLine();
-            ImGui::RadioButton("One texture", &printTexture, 1);
+            ImGui::RadioButton("One texture", &printTexture, 1); ImGui::SameLine();
+			ImGui::RadioButton("Depth Map", &printTexture, 2);
             if (ImGui::CollapsingHeader("FrameBuffer image"))
             {
                 ImGui::RadioButton("GPosition", &textureToPrint, 0);  ImGui::SameLine();
@@ -209,7 +285,7 @@ Application::Application(int argc, char** argv):
     intensityDir(1),
     colorDir {0.828,0.438,0.130},
     textureToPrint {2},
-    printTexture {0}
+    printTexture {2}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
@@ -224,11 +300,15 @@ Application::Application(int argc, char** argv):
 
     glmlv::loadObjScene(m_AssetsRootPath / m_AppName / "sponza/sponza.obj", data);
 
-    const auto sceneDiagonalSize = glm::length(data.bboxMax - data.bboxMin);
-    view.setSpeed(sceneDiagonalSize * 0.2f); // 10% de la scene parcouru par seconde
+	m_BBoxMin = data.bboxMin;
+	m_BBoxMax = data.bboxMax;
+	m_SceneSizeLenght = glm::length(data.bboxMax - data.bboxMin);
+
+    //const auto sceneDiagonalSize = glm::length(data.bboxMax - data.bboxMin);
+    view.setSpeed(m_SceneSizeLenght * 0.2f); // 10% de la scene parcouru par seconde
 
     //sceneSize = glm::length(data.bboxMax - data.bboxMin);
-    ProjMatrix = glm::perspective(70.f, float(m_nWindowWidth) / m_nWindowHeight, 0.01f * sceneDiagonalSize, sceneDiagonalSize); // near = 1% de la taille de la scene, far = 100%
+    ProjMatrix = glm::perspective(70.f, float(m_nWindowWidth) / m_nWindowHeight, 0.01f * m_SceneSizeLenght, m_SceneSizeLenght); // near = 1% de la taille de la scene, far = 100%
 
 
     glEnable(GL_DEPTH_TEST);
@@ -358,6 +438,11 @@ Application::Application(int argc, char** argv):
     diffuseLocation = programShading.getUniformLocation("uGDiffuse");
     glossyLocation = programShading.getUniformLocation("uGlossyShininess");
 
+	//FOR SHADOW MAP
+	m_uDirLightViewProjMatrix_shadingPass = programShading.getUniformLocation("uDirLightViewProjMatrix");
+	m_uDirLightShadowMap = programShading.getUniformLocation("uDirLightShadowMap");
+	m_uDirLightShadowMapBias = programShading.getUniformLocation("uDirLightShadowMapBias");
+
     //Construction cube
     
     glGenBuffers(1, &vboQuad);
@@ -402,17 +487,16 @@ Application::Application(int argc, char** argv):
 	glGenTextures(1, &m_directionalSMTexture);
 
 	glBindTexture(GL_TEXTURE_2D, m_directionalSMTexture);
-	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, m_nWindowWidth, m_nWindowHeight);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, m_nDirectionalSMResolution, m_nDirectionalSMResolution);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	//FBO
 	glGenFramebuffers(1, &m_directionalSMFBO);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_directionalSMFBO);
+	glBindTexture(GL_TEXTURE_2D, m_directionalSMTexture);
+
 
 	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_directionalSMTexture, 0);
-
-	GLenum smDrawBuffer = GL_DEPTH_ATTACHMENT;
-	glDrawBuffers(1, &smDrawBuffer);
 
 	GLenum smStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
 
@@ -430,16 +514,21 @@ Application::Application(int argc, char** argv):
 	glSamplerParameteri(m_directionalSMSampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glSamplerParameteri(m_directionalSMSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
-
 	//_____________________________________________________PROGRAM SHADOW MAP___________________________________________________________________________________________
 	
 	const auto pathToSMVS = m_ShadersRootPath / m_AppName / "directionalSM.vs.glsl";
 	const auto pathToSMFS = m_ShadersRootPath / m_AppName / "directionalSM.fs.glsl";
 
 	m_directionalSMProgram = glmlv::compileProgram({ pathToSMVS, pathToSMFS });
-	m_directionalSMProgram.use();
+	//m_directionalSMProgram.use();
 
 	//LIGHT
 	m_uDirLightViewProjMatrix = glGetUniformLocation(m_directionalSMProgram.glId(), "uDirLightViewProjMatrix");
+
+	//_____________________________________________________PROGRAM DEPTH MAP - DEBUG___________________________________________________________________________________________
+	m_displayDepthProgram = glmlv::compileProgram({ m_ShadersRootPath / m_AppName / "shadingPass.vs.glsl", m_ShadersRootPath / m_AppName / "displayDepth.fs.glsl" });
+
+	m_uGDepthSamplerLocation = glGetUniformLocation(m_displayDepthProgram.glId(), "uGDepth");
+
 
 }

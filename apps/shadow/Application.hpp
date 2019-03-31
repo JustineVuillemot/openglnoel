@@ -32,6 +32,9 @@ private:
 
     glmlv::ViewController view;
 
+	glm::vec3 m_BBoxMin, m_BBoxMax;
+	float m_SceneSizeLenght;
+
     //float sceneSize;
 
     glmlv::GLProgram programGeometry, programShading;
@@ -100,4 +103,13 @@ private:
 	//SHADING MAP PROGRAM
 	glmlv::GLProgram m_directionalSMProgram;
 	GLint m_uDirLightViewProjMatrix;
+
+	GLint m_uDirLightViewProjMatrix_shadingPass;
+	GLint m_uDirLightShadowMap;
+	GLint m_uDirLightShadowMapBias;
+
+	//Shading Map - Depth Map
+	glmlv::GLProgram m_displayDepthProgram;
+	GLint m_uGDepthSamplerLocation;
+
 };
