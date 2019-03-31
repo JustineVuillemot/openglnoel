@@ -39,9 +39,8 @@ private:
     const glmlv::SimpleGeometry cube = glmlv::makeCube();
     const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
 
-    glmlv::GLProgram program;
+    glmlv::GLProgram program, programShading;
    
-
     glmlv::ViewController view;
 
     GLint modelViewProjMatrix;
@@ -100,5 +99,30 @@ private:
 	std::string warn;
 	
 
-	
+	//deferred
+	enum GBufferTextureType
+	{
+		GPosition = 0,
+		GNormal,
+		GAmbient,
+		GDiffuse,
+		GDepth, // On doit créer une texture de depth mais on écrit pas directement dedans dans le FS. OpenGL le fait pour nous (et l'utilise).
+		GBufferTextureCount
+	};
+	GLuint m_GBufferTextures[GBufferTextureCount];
+
+	const GLenum m_GBufferTextureFormat[GBufferTextureCount] = { GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_DEPTH_COMPONENT32F };
+
+	GLuint m_FBO;
+
+	int textureToPrint;
+	int printTexture;
+
+	//Shading uniform
+	//GLint directionalLightDir;
+	//GLint directionalLightIntensity;
+
+	GLuint positionLocation, normalLocation, ambientLocation, diffuseLocation;
+
+	GLuint vboQuad, vaoQuad, iboQuad;
 };

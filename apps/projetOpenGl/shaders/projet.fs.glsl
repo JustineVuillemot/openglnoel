@@ -2,8 +2,8 @@
 
 
 //lightning
-uniform vec3 uDirectionalLightDir;
-uniform vec3 uDirectionalLightIntensity;
+//uniform vec3 uDirectionalLightDir;
+//uniform vec3 uDirectionalLightIntensity;
 
 //uniform vec3 uKd;
 uniform sampler2D uBaseColor;
@@ -18,14 +18,18 @@ in vec3 vViewSpaceNormal;
 in vec2 vTexCoords;
 in vec2 vTexCoords1;
 
-out vec3 fColor;
+//out vec3 fColor;
+layout(location = 0) out vec3 fPosition;
+layout(location = 1) out vec3 fNormal;
+layout(location = 2) out vec3 fAmbient;
+layout(location = 3) out vec3 fDiffuse;
 
 void main()
 {
-	float dotAngle = dot(vViewSpaceNormal, uDirectionalLightDir);
-	float lenNormal = length(vViewSpaceNormal);
-	float lenDir = length(uDirectionalLightDir);
-	float angle = acos(dotAngle / sqrt(lenNormal * lenDir));
+	//float dotAngle = dot(vViewSpaceNormal, uDirectionalLightDir);
+	//float lenNormal = length(vViewSpaceNormal);
+	//float lenDir = length(uDirectionalLightDir);
+	//float angle = acos(dotAngle / sqrt(lenNormal * lenDir));
 
 	vec3 baseColor;
 	if(uBaseCoord == 0){
@@ -51,5 +55,12 @@ void main()
 	
 
 	//fColor = vViewSpaceNormal;
-	fColor = emissionColor + baseColor * cos(angle) * uDirectionalLightIntensity;
+	//fColor = emissionColor + baseColor * cos(angle) * uDirectionalLightIntensity;
+
+	vec3 N = normalize(vViewSpaceNormal);
+
+	fPosition = vViewSpacePosition;
+	fNormal = N;
+	fAmbient = emissionColor;
+	fDiffuse = baseColor;
 }
