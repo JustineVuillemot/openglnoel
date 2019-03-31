@@ -8,7 +8,8 @@
 int Application::run()
 {
 	// Put here code to run before rendering loop
-    glClearColor(1,0,0,1);
+    //glClearColor(1,0,0,1);
+	float gamma = 2.2f;
 
     
     // Loop until the user closes the window
@@ -79,9 +80,6 @@ int Application::run()
                 }
             }
 
-            
-            
-
             glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const GLvoid*) (indexOffset * sizeof(GLuint)));
             indexOffset += indexCount;
             ++indexShape;
@@ -98,11 +96,6 @@ int Application::run()
         glBindVertexArray(0);
 
 
-        const auto fbSize = m_GLFWHandle.framebufferSize();
-        glViewport(0, 0, fbSize.x, fbSize.y);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
         //Lecture
         if(printTexture == 1){
             glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FBO);
@@ -113,7 +106,10 @@ int Application::run()
         else{
 
             programShading.use();
-            glBindVertexArray(vaoQuad);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_BeautyFBO);
+
+			glViewport(0, 0, m_nWindowWidth, m_nWindowHeight);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             
             //Lightning - General
             glUniform3fv( directionalLightDir, 1, glm::value_ptr( view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
@@ -131,16 +127,43 @@ int Application::run()
             glUniform1i(diffuseLocation, 3);
             glUniform1i(glossyLocation, 4);
 
+			glBindVertexArray(vaoQuad);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
 
-            for(int i = 0; i < 5; ++i){
+            /*for(int i = 0; i < 5; ++i){ //
                 glActiveTexture(GL_TEXTURE0 + i);
                 glBindTexture(GL_TEXTURE_2D, 0);
-            }
+            }*/
 
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+			/*TEST POUR POST-PROCESSING*/
+
+			/*glBindFramebuffer(GL_READ_FRAMEBUFFER, m_BeautyFBO);
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);*/
+
+			//GAMMA CORRECTION
+			m_gammaCorrectionProgram.use();
+
+			glUniform1f(m_uGammaExponent, 1.f / gamma);
+			glBindImageTexture(0, m_BeautyTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+			glBindImageTexture(1, m_GammaCorrectedBeautyTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+			glDispatchCompute(m_nWindowWidth, m_nWindowHeight, 1);
+
+			const auto viewportSize = m_GLFWHandle.framebufferSize();
+			glViewport(0, 0, viewportSize.x, viewportSize.y);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, m_GammaCorrectedBeautyFBO);
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight,
+				0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }
-
-        
 
         // GUI code:
 		glmlv::imguiNewFrame();
@@ -165,6 +188,7 @@ int Application::run()
                 ImGui::RadioButton("GDiffuse", &textureToPrint, 3); ImGui::SameLine();
                 ImGui::RadioButton("GGlossyShininess", &textureToPrint, 4);
             }
+			ImGui::InputFloat("Gamma Correction", &gamma);
             ImGui::End();
         }
 
@@ -197,7 +221,7 @@ Application::Application(int argc, char** argv):
     intensityDir(10),
     colorDir {50,50,50},
     textureToPrint {2},
-    printTexture {1}
+    printTexture {0}
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
@@ -220,6 +244,7 @@ Application::Application(int argc, char** argv):
 
 
     glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_FRAMEBUFFER_SRGB);
 
     const GLuint VERTEX_ATTR_POSITION = 0;
     const GLuint VERTEX_ATTR_NORMAL = 1;
@@ -385,5 +410,59 @@ Application::Application(int argc, char** argv):
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindVertexArray(0);
+
+	//_____________________________________________________TEXTURE & FBO fOR POST-PROCESSING___________________________________________________________________________________________
+
+	glGenTextures(1, &m_BeautyTexture);
+
+	glBindTexture(GL_TEXTURE_2D, m_BeautyTexture);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, m_nWindowWidth, m_nWindowHeight);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	//FBO
+	glGenFramebuffers(1, &m_BeautyFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_BeautyFBO);
+
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_BeautyTexture, 0);
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	GLenum beautyStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+
+	if (beautyStatus != GL_FRAMEBUFFER_COMPLETE) {
+		std::cerr << "FB error, status: " << beautyStatus << std::endl;
+		throw std::runtime_error("FBO error");
+	}
+
+	//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+	//_____________________________________________________PROGRAM  GAMMA CORRECTION___________________________________________________________________________________________
+
+	const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
+
+	m_gammaCorrectionProgram = glmlv::compileProgram({ pathToGCCS });
+	m_gammaCorrectionProgram.use();
+
+	m_uGammaExponent = m_gammaCorrectionProgram.getUniformLocation("uGammaExponent");
+
+	glGenTextures(1, &m_GammaCorrectedBeautyTexture);
+
+	glBindTexture(GL_TEXTURE_2D, m_GammaCorrectedBeautyTexture);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, m_nWindowWidth, m_nWindowHeight);
+
+	glGenFramebuffers(1, &m_GammaCorrectedBeautyFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_GammaCorrectedBeautyFBO);
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_GammaCorrectedBeautyTexture, 0);
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	GLenum gammaStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+
+	if (gammaStatus != GL_FRAMEBUFFER_COMPLETE) {
+		std::cerr << "FB error, status: " << gammaStatus << std::endl;
+		throw std::runtime_error("FBO error");
+	}
+
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
 }

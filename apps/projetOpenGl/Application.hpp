@@ -1,7 +1,6 @@
 #pragma once
 
 
-
 #include <glmlv/filesystem.hpp>
 #include <glmlv/GLFWHandle.hpp>
 #include <glmlv/GLProgram.hpp>
@@ -10,7 +9,6 @@
 #include <glmlv/Image2DRGBA.hpp>
 #include <map>
 #include <tiny_gltf.h>
-
 
 
 class Application
@@ -40,9 +38,10 @@ private:
     const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
 
     glmlv::GLProgram program;
-   
 
-    glmlv::ViewController view;
+	  glmlv::GLProgram m_gammaCorrectionProgram;
+
+    glmlv::ViewController *view;
 
     GLint modelViewProjMatrix;
     GLint modelViewMatrix;
@@ -50,6 +49,9 @@ private:
 
     GLint directionalLightDir;
     GLint directionalLightIntensity;
+
+	//For compute shader
+	GLint m_uGammaExponent;
 
     //matrix
     glm::mat4 ProjMatrix;
