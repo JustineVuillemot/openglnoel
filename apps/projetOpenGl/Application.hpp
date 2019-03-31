@@ -19,6 +19,10 @@ public:
     Application(int argc, char** argv);
 
     int run();
+
+	void getMeshs(tinygltf::Node node, std::vector<int> &meshIdx);
+	void PrintParameterMap(const tinygltf::ParameterMap &pmap);
+
 private:
     const size_t m_nWindowWidth = 1280;
     const size_t m_nWindowHeight = 720;
@@ -36,10 +40,7 @@ private:
     const glmlv::SimpleGeometry sphere = glmlv::makeSphere(10);
 
     glmlv::GLProgram program;
-
-    GLuint textureCube;
-    GLuint textureSphere;
-    GLuint sampler;
+   
 
     glmlv::ViewController view;
 
@@ -49,9 +50,6 @@ private:
 
     GLint directionalLightDir;
     GLint directionalLightIntensity;
-    GLint pointLightPosition;
-    GLint pointLightIntensity;
-    GLint uKd;
 
     //matrix
     glm::mat4 ProjMatrix;
@@ -68,23 +66,39 @@ private:
     float intensityPoint;
     glm::vec3 colorPoint;
     glm::vec3 pointLightPos;
-    float uKdCube[3];
-    float uKdSphere[3];
 
-	std::map<int, std::vector<double>> meshMatrix;
 
+	
+	//GLTF
 	std::map<std::string, int> attribIndexOf;
 	std::map<int, int> numberOfComponentOf;
 	std::map<int, GLenum> attribEnum;
 
 	std::vector<GLuint> vaos;
 	std::vector<tinygltf::Primitive> primitives;
-	std::vector<std::vector<double>> matrix;
+	std::vector<glm::dmat4> matrix;
+	std::vector<glmlv::Image2DRGBA> images;
+	std::vector<GLuint> textures;
+	std::vector<GLuint> samplers;
+
+	GLuint baseColorLocation;
+	GLuint emissionColorLocation;
+	GLuint baseColorFactor;
+	GLuint emissionColorFactor;
+	GLuint baseCoord;
+	GLuint emissionCoord;
+
+	int baseColorTextureID = -1;
+	int baseColorTexCoord = -1;
+	int emisColorTextureID = -1;
+	int emisColorTexCoord = -1;
+	
 
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
 	std::string err;
 	std::string warn;
-	//std::string input_gltf; //filename
+	
+
 	
 };
