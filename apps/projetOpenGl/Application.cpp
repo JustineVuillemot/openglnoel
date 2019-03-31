@@ -112,7 +112,7 @@ int Application::run()
 
     ProjMatrix = glm::perspective(glm::radians(70.f), 1.0f*m_nWindowWidth / m_nWindowHeight, 0.1f, 100.0f);
 
-	 //Change unit texture
+	//Change unit texture
 	glUniform1i(baseColorLocation, 0); // Set the uniform to 0 because we use texture unit 0
 	glUniform1i(emissionColorLocation, 1); // Set the uniform to 1 because we use texture unit 1
 
@@ -122,24 +122,32 @@ int Application::run()
     // Loop until the user closes the window
     for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
-        const auto seconds = glfwGetTime();
 
+        const auto seconds = glfwGetTime();
+		
         // Put here rendering code
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         const auto fbSize = m_GLFWHandle.framebufferSize();
 
 
 		//Lightning - General
-		glUniform3fv(directionalLightDir, 1, glm::value_ptr(view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
-		glUniform3fv(directionalLightIntensity, 1, glm::value_ptr(colorDir*intensityDir));
+		//programShading.use();
+		//glUniform3fv(directionalLightDir, 1, glm::value_ptr(view.getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+		//glUniform3fv(directionalLightIntensity, 1, glm::value_ptr(colorDir*intensityDir));
 
 
 		//DRAW
+		// Put here rendering code
+		program.use();
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
+
+		glViewport(0, 0, m_nWindowWidth, m_nWindowHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		for (int i = 0; i < vaos.size(); ++i) {
 
 			//printMatrix(matrix[i]);
-			MVMatrixCube = glm::translate((glm::dmat4)view.getViewMatrix()*matrix[i], glm::dvec3(0.0f, 0.0f, -5.0f));
+			MVMatrixCube = glm::translate((glm::dmat4)view->getViewMatrix()*matrix[i], glm::dvec3(0.0f, 0.0f, -5.0f));
 			NormalMatrixCube = glm::transpose(glm::inverse(MVMatrixCube));
 
 			//Envoie des matrices
@@ -189,6 +197,8 @@ int Application::run()
 			emisColorTextureID = -1;
 			emisColorTexCoord = -1;
 		}
+
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	
 		//std::cout << "test2" << std::endl;
 
@@ -196,6 +206,42 @@ int Application::run()
 
         glBindTexture(GL_TEXTURE_2D, 0);
 		//glClear(GL_COLOR_BUFFER_BIT);
+
+		//Lecture
+		if (printTexture == 1) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FBO);
+			glReadBuffer(GL_COLOR_ATTACHMENT0 + textureToPrint);
+			glBlitFramebuffer(0, 0, m_nWindowWidth, m_nWindowHeight, 0, 0, m_nWindowWidth, m_nWindowHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		}
+		else {
+
+			programShading.use();
+			glBindVertexArray(vaoQuad);
+
+			//Lightning - General
+			glUniform3fv(directionalLightDir, 1, glm::value_ptr(view->getViewMatrix() * glm::vec4(sin(anglePhi)*cos(angleTheta), sin(anglePhi)*sin(angleTheta), cos(anglePhi), 0)));
+			glUniform3fv(directionalLightIntensity, 1, glm::value_ptr(colorDir*intensityDir));
+
+
+			for (int i = 0; i < 4; ++i) {
+				glActiveTexture(GL_TEXTURE0 + i);
+				glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
+			}
+
+			glUniform1i(positionLocation, 0); // Set the uniform to 0 because we use texture unit 0
+			glUniform1i(normalLocation, 1); // Set the uniform to 1 because we use texture unit 1
+			glUniform1i(ambientLocation, 2);
+			glUniform1i(diffuseLocation, 3);
+
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+			for (int i = 0; i < 4; ++i) {
+				glActiveTexture(GL_TEXTURE0 + i);
+				glBindTexture(GL_TEXTURE_2D, 0);
+			}
+
+		}
 
         // GUI code:
 		glmlv::imguiNewFrame();
@@ -211,7 +257,15 @@ int Application::run()
                 ImGui::DragFloat("DirLightIntensity", &intensityDir);
                 ImGui::ColorEdit3("DirLightColor", glm::value_ptr(colorDir));
             }
-
+			ImGui::RadioButton("Result", &printTexture, 0);  ImGui::SameLine();
+			ImGui::RadioButton("One texture", &printTexture, 1);
+			if (ImGui::CollapsingHeader("FrameBuffer image"))
+			{
+				ImGui::RadioButton("GPosition", &textureToPrint, 0);  ImGui::SameLine();
+				ImGui::RadioButton("GNormal", &textureToPrint, 1); ImGui::SameLine();
+				ImGui::RadioButton("GAmbient", &textureToPrint, 2); ImGui::SameLine();
+				ImGui::RadioButton("GDiffuse", &textureToPrint, 3);
+			}
             ImGui::End();
             //ImGui::ShowDemoWindow();
         }
@@ -239,16 +293,15 @@ Application::Application(int argc, char** argv):
     m_ImGuiIniFilename { m_AppName + ".imgui.ini" },
     m_ShadersRootPath { m_AppPath.parent_path() / "shaders" },
     m_AssetsRootPath { m_AppPath.parent_path() / "assets" },
-    view { new Trackball(m_GLFWHandle.window(), 10) },
-    pointLightPos {glm::vec3(0.0f, 10.0f, 0.0f)},
-    anglePhi(10),
-    angleTheta(10),
+	view { new Trackball(m_GLFWHandle.window(), 10) },
+	anglePhi(1),
+	angleTheta(1),
     intensityDir(1),
-    colorDir {1,1,1},
-    intensityPoint(20),
-    colorPoint {50,50,50}
+    colorDir {0.7,0.7,0.7},
+	textureToPrint{ 3 },
+	printTexture{ 0 }
 {
-    ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
+	ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
 
 
 	// Put here initialization code
@@ -263,14 +316,14 @@ Application::Application(int argc, char** argv):
 
 
 	//std::map<int, std::string> attribIndexOf
-	attribIndexOf.insert({"POSITION", VERTEX_ATTR_POSITION});
+	attribIndexOf.insert({ "POSITION", VERTEX_ATTR_POSITION });
 	attribIndexOf.insert({ "NORMAL", VERTEX_ATTR_NORMAL });
 	attribIndexOf.insert({ "TEXCOORD_0", VERTEX_ATTR_TEXCOORDS });
 	attribIndexOf.insert({ "TEXCOORD_1", VERTEX_ATTR_TEXCOORDS1 });
 	attribIndexOf.insert({ "TANGENT", VERTEX_ATTR_TANGENT });
 
-	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC2, 2});
-	numberOfComponentOf.insert({TINYGLTF_TYPE_VEC3, 3});
+	numberOfComponentOf.insert({ TINYGLTF_TYPE_VEC2, 2 });
+	numberOfComponentOf.insert({ TINYGLTF_TYPE_VEC3, 3 });
 	numberOfComponentOf.insert({ TINYGLTF_TYPE_VEC4, 4 });
 
 	attribEnum.insert({ 4, GL_TRIANGLES });
@@ -293,7 +346,7 @@ Application::Application(int argc, char** argv):
 	if (!ret) {
 		printf("Failed to parse glTF\n");
 	}
-	
+
 
 	std::vector<GLuint> buffers(model.buffers.size()); // un par tinygltf::Buffer / c'est les vbos
 
@@ -322,7 +375,7 @@ Application::Application(int argc, char** argv):
 
 			for (std::map<std::string, int>::iterator it = model.meshes[i].primitives[j].attributes.begin(); it != model.meshes[i].primitives[j].attributes.end(); ++it) {
 				//std::cout << it->first << std::endl;
-				
+
 				tinygltf::Accessor accesor = model.accessors[model.meshes[i].primitives[j].attributes[it->first]];
 				bufferView = model.bufferViews[accesor.bufferView];
 				bufferIndex = bufferView.buffer;
@@ -330,7 +383,7 @@ Application::Application(int argc, char** argv):
 				glEnableVertexAttribArray(attribIndexOf[it->first]); // Ici je suppose qu'on a prérempli une map attribIndexOf qui associe aux strings genre "POSITION" un index d'attribut du vertex shader (les location = XXX du vertex shader); dans les TPs on utilisait 0 pour position, 1 pour normal et 2 pour tex coords
 				glVertexAttribPointer(attribIndexOf[it->first], numberOfComponentOf[accesor.type], accesor.componentType, GL_FALSE, bufferView.byteStride, (const GLvoid*)(bufferView.byteOffset + accesor.byteOffset)); // Ici encore il faut avoir remplit une map numberOfComponentOf qui associe un type gltf (comme "VEC2") au nombre de composantes (2 pour "VEC2", 3 pour "VEC3")
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
-				
+
 			}
 
 			vaos.push_back(vaoId);
@@ -348,49 +401,49 @@ Application::Application(int argc, char** argv):
 	}
 	//get my matrix
   */
-	
-	/*for (int i = 0; i < model.nodes.size(); ++i) 
-	{
-		std::vector<int> indexMesh;
-		getMeshs(model.nodes[i], indexMesh); //for one node, check all of the tree to get all of the index of the meshes which are "child" of the node
-		glm::dmat4 nodeMatrix = glm::dmat4(1.0f);
 
-		if (model.nodes[i].matrix.size() == 16) {
-			nodeMatrix = matrixToMat4(model.nodes[i].matrix);
-		}
-		else { //T*R*S
-			if (model.nodes[i].scale.size() == 3) {
-				nodeMatrix = scaleToMat4(model.nodes[i].scale)*nodeMatrix;
-			}
-			if (model.nodes[i].rotation.size() == 4) {
-				nodeMatrix = quaternionToRotation(model.nodes[i].rotation)*nodeMatrix;
-			}
-			if (model.nodes[i].translation.size() == 3) {
-				nodeMatrix = translationToMat4(model.nodes[i].translation)*nodeMatrix;
-			}
-		}
-		
-		for (int j = 0; j < indexMesh.size(); ++j) {
-			matrix[indexMesh[j]] = matrix[indexMesh[j]]*nodeMatrix; 
-			//The elder parent will be the first to be computed so that will do ParentOld*ParentYoung*Mesh (for example)
-			//If I change the order => nothing change
-		}	
-	}
-	std::cout << "all my matrix____________________________________________" << std::endl;
-	for (int i = 0; i < matrix.size(); ++i) {
-		printMatrix(matrix[i]);
-		std::cout << std::endl;
-	}
-	*/
+  /*for (int i = 0; i < model.nodes.size(); ++i)
+  {
+	  std::vector<int> indexMesh;
+	  getMeshs(model.nodes[i], indexMesh); //for one node, check all of the tree to get all of the index of the meshes which are "child" of the node
+	  glm::dmat4 nodeMatrix = glm::dmat4(1.0f);
 
-    //PROGRAM
-    const auto pathToSMVS = m_ShadersRootPath / m_AppName / "projet.vs.glsl";
-    const auto pathToSMFS = m_ShadersRootPath / m_AppName / "projet.fs.glsl";
+	  if (model.nodes[i].matrix.size() == 16) {
+		  nodeMatrix = matrixToMat4(model.nodes[i].matrix);
+	  }
+	  else { //T*R*S
+		  if (model.nodes[i].scale.size() == 3) {
+			  nodeMatrix = scaleToMat4(model.nodes[i].scale)*nodeMatrix;
+		  }
+		  if (model.nodes[i].rotation.size() == 4) {
+			  nodeMatrix = quaternionToRotation(model.nodes[i].rotation)*nodeMatrix;
+		  }
+		  if (model.nodes[i].translation.size() == 3) {
+			  nodeMatrix = translationToMat4(model.nodes[i].translation)*nodeMatrix;
+		  }
+	  }
 
-    program = glmlv::compileProgram({pathToSMVS, pathToSMFS});
-    program.use();
+	  for (int j = 0; j < indexMesh.size(); ++j) {
+		  matrix[indexMesh[j]] = matrix[indexMesh[j]]*nodeMatrix;
+		  //The elder parent will be the first to be computed so that will do ParentOld*ParentYoung*Mesh (for example)
+		  //If I change the order => nothing change
+	  }
+  }
+  std::cout << "all my matrix____________________________________________" << std::endl;
+  for (int i = 0; i < matrix.size(); ++i) {
+	  printMatrix(matrix[i]);
+	  std::cout << std::endl;
+  }
+  */
 
-    //TEXTURES
+  //PROGRAM
+	const auto pathToSMVS = m_ShadersRootPath / m_AppName / "projet.vs.glsl";
+	const auto pathToSMFS = m_ShadersRootPath / m_AppName / "projet.fs.glsl";
+
+	program = glmlv::compileProgram({ pathToSMVS, pathToSMFS });
+	program.use();
+
+	//TEXTURES
 
 	for (int i = 0; i < model.images.size(); ++i) {
 		std::cout << dirnameOf(argv[1]) + model.images[i].uri << std::endl;
@@ -409,8 +462,7 @@ Application::Application(int argc, char** argv):
 		textures.push_back(texture);
 	}
 
-	
-    //SAMPLERS
+	//SAMPLERS
 	for (int i = 0; i < model.samplers.size(); ++i) {
 		GLuint sampler;
 
@@ -423,16 +475,16 @@ Application::Application(int argc, char** argv):
 		samplers.push_back(sampler);
 	}
 
-    //getUniform
-    //MATRIX
-    modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
-    modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
-    normalMatrix = program.getUniformLocation("uNormalMatrix");
+	//getUniform
+	//MATRIX
+	modelViewProjMatrix = program.getUniformLocation("uModelViewProjMatrix");
+	modelViewMatrix = program.getUniformLocation("uModelViewMatrix");
+	normalMatrix = program.getUniformLocation("uNormalMatrix");
 
-    
-  //LIGHT
-    directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
-    directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity"); 
+
+	//LIGHT
+	//directionalLightDir = program.getUniformLocation("uDirectionalLightDir");
+	//directionalLightIntensity = program.getUniformLocation("uDirectionalLightIntensity"); 
 
 	//samplerLocation
 	baseColorLocation = program.getUniformLocation("uBaseColor");
@@ -445,14 +497,106 @@ Application::Application(int argc, char** argv):
 	//factor
 	baseColorFactor = program.getUniformLocation("uBaseFactor");;
 	emissionColorFactor = program.getUniformLocation("uEmissionFactor");
-  
-  const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
+
+
+	//_____________________________________________________PROGRAM   SHADING SHADER___________________________________________________________________________________________
+
+	//PROGRAM SHADING
+	const auto pathToSMVS2 = m_ShadersRootPath / m_AppName / "shadingPass.vs.glsl";
+	const auto pathToSMFS2 = m_ShadersRootPath / m_AppName / "shadingPass.fs.glsl";
+
+	programShading = glmlv::compileProgram({ pathToSMVS2, pathToSMFS2 });
+	programShading.use();
+
+	//Deferred
+	glGenTextures(GBufferTextureCount, m_GBufferTextures);
+
+	for (int i = 0; i < GBufferTextureCount; ++i) {
+		glBindTexture(GL_TEXTURE_2D, m_GBufferTextures[i]);
+		glTexStorage2D(GL_TEXTURE_2D, 1, m_GBufferTextureFormat[i], m_nWindowWidth, m_nWindowHeight);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	//FBO
+	glGenFramebuffers(1, &m_FBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_FBO);
+
+	for (int i = 0; i < GBufferTextureCount - 1; ++i) {
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, m_GBufferTextures[i], 0);
+	}
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_GBufferTextures[GBufferTextureCount - 1], 0);
+
+	GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
+	glDrawBuffers(GBufferTextureCount, drawBuffers);
+
+	GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		std::cerr << "FB error, status: " << status << std::endl;
+		throw std::runtime_error("FBO error");
+	}
+
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+
+	//LIGHT
+	directionalLightDir = programShading.getUniformLocation("uDirectionalLightDir_vs");
+	directionalLightIntensity = programShading.getUniformLocation("uDirectionalLightIntensity");
+
+	positionLocation = programShading.getUniformLocation("uGPosition");
+	normalLocation = programShading.getUniformLocation("uGNormal");
+	ambientLocation = programShading.getUniformLocation("uGAmbient");
+	diffuseLocation = programShading.getUniformLocation("uGDiffuse");
+
+	//Construction cube
+
+	glGenBuffers(1, &vboQuad);
+	glGenBuffers(1, &iboQuad);
+	glGenVertexArrays(1, &vaoQuad);
+
+	glm::vec2 vertexBufferQuad[] = {
+		glm::vec2(-1, -1),
+		glm::vec2(1, -1),
+		glm::vec2(1, 1),
+		glm::vec2(-1, 1)
+	};
+
+	uint32_t indexBufferQuad[] = {
+		0, 1, 2,
+		2, 3, 0
+	};
+
+	//VBO
+	glBindBuffer(GL_ARRAY_BUFFER, vboQuad);
+	glBufferStorage(GL_ARRAY_BUFFER, sizeof(vertexBufferQuad), vertexBufferQuad, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	//IBO
+	glBindBuffer(GL_ARRAY_BUFFER, iboQuad);
+	glBufferStorage(GL_ARRAY_BUFFER, sizeof(indexBufferQuad), indexBufferQuad, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	//VAO
+	glBindVertexArray(vaoQuad);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboQuad);
+
+	glEnableVertexAttribArray(VERTEX_ATTR_POSITION);
+	glBindBuffer(GL_ARRAY_BUFFER, vboQuad);
+	glVertexAttribPointer(VERTEX_ATTR_POSITION, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(0);
+
+
+	const auto pathToGCCS = m_ShadersRootPath / m_AppName / "gammaCorrect.cs.glsl";
 
 	m_gammaCorrectionProgram = glmlv::compileProgram({ pathToGCCS });
 	m_gammaCorrectionProgram.use();
 
 	m_uGammaExponent = m_gammaCorrectionProgram.getUniformLocation("uGammaExponent");
 }
+
 
 
 
